@@ -1,399 +1,151 @@
+# Orion Store for PC (Windows)
+
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/m3-hero-dark.svg">
-    <img src="assets/m3-hero-light.svg" alt="Orion Store, the open source app store in Material 3 Expressive" width="100%">
-  </picture>
+  <img src="assets/orion-logo.svg" alt="Orion Store for PC Logo" width="120" height="120">
 </p>
 
 <p align="center">
-  <a href="https://github.com/RookieEnough/Orion-Store/stargazers"><img src="https://img.shields.io/github/stars/RookieEnough/Orion-Store?style=flat-square&logo=github&color=7478F8&labelColor=E1E0FF" alt="Stars"></a>
-  <a href="https://github.com/RookieEnough/Orion-Store/network/members"><img src="https://img.shields.io/github/forks/RookieEnough/Orion-Store?style=flat-square&logo=github&color=A3E635&labelColor=E1E0FF" alt="Forks"></a>
+  A native Windows desktop client for <strong>Orion Store</strong>, engineered in <strong>C#</strong>, <strong>.NET</strong>, <strong>WinUI 3</strong>, and the <strong>Windows App SDK</strong>.<br>
+  Transparent public catalog, multi-source release resolution, zero tracking, and strict security verification.
 </p>
 
 <p align="center">
-  A transparent app store built around public releases, inspectable metadata, and automation you can actually follow.<br>
-  <strong>Now fully native.</strong>
+  <a href="#prerequisites"><img src="https://img.shields.io/badge/Platform-Windows%2010%20%7C%2011%20(x64%20%2F%20ARM64)-blue?style=flat-square&logo=windows" alt="Platform"></a>
+  <a href="#running-the-unit-tests"><img src="https://img.shields.io/badge/Tests-85%20Passed-brightgreen?style=flat-square&logo=dotnet" alt="Tests"></a>
+  <a href="#license--credits"><img src="https://img.shields.io/badge/License-GPL--3.0-orange?style=flat-square" alt="License"></a>
+  <a href="https://github.com/RookieEnough/Orion-Store"><img src="https://img.shields.io/badge/Upstream-Orion%20Store%20(Android)-purple?style=flat-square&logo=android" alt="Upstream"></a>
 </p>
 
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/m3-chips-dark.svg">
-    <img src="assets/m3-chips-light.svg" alt="Native Kotlin, Jetpack Compose, Material 3 Expressive, zero trackers, open source" height="40">
-  </picture>
-</p>
+---
 
-<p align="center">
-  <a href="https://ko-fi.com/rookie_z" target="_blank"><img src="https://storage.ko-fi.com/cdn/kofi6.png?v=6" height="30" style="height:30px; border-radius:8px; display:inline-block;" alt="Donate via Ko-fi" /></a>
-  &nbsp;&nbsp;
-  <a href="https://buymeachai.ezee.li/RookieZ" target="_blank"><img src="https://raw.githubusercontent.com/TakiShiwa/donate-with-upi/ffbb38749891aeb62e758a3692698e346e3df2da/Button/SVG/UPI-light-blue-01.svg" height="30" style="height:30px; border-radius:8px; display:inline-block;" alt="Donate via UPI" /></a>
-  <br />
-  <a href="https://paypal.me/RookieEnough" target="_blank"><img src="https://raw.githubusercontent.com/stefan-niedermann/paypal-donate-button/master/paypal-donate-button.png" height="50" style="height:50px; border-radius:8px; display:inline-block; margin-top:8px;" alt="Donate via PayPal" /></a>
-</p>
+## Highlights & Features
 
-<br>
+### 🖥️ Native Windows Fluent Design
+- Built from the ground up for desktop using **WinUI 3** and **Windows App SDK 1.6**.
+- Implements modern Windows 11 Fluent styling: **Mica backdrop**, responsive NavigationView, custom TitleBar, dark/light theme switching, and keyboard navigation.
 
-<p align="center">
-  <a href="https://github.com/RookieEnough/Orion-Store/releases">
-    <img src="https://img.shields.io/github/v/release/RookieEnough/Orion-Store?style=for-the-badge&logo=github&label=Version&color=7478F8&labelColor=3F40C0" alt="Latest Version">
-  </a>
-  <a href="https://github.com/RookieEnough/Orion-Store/releases">
-    <img src="https://img.shields.io/github/downloads/RookieEnough/Orion-Store/total?style=for-the-badge&logo=cloud&label=Downloads&color=A3E635&labelColor=456900" alt="Total Downloads">
-  </a>
-  <a href="https://orionstore.pages.dev">
-    <img src="https://img.shields.io/badge/Website-orionstore.pages.dev-EC4899?style=for-the-badge&logo=googlechrome&logoColor=white" alt="Website">
-  </a>
-</p>
+### 🌐 Cross-Platform Device Switcher & Strict Windows Enforcement
+- **Device Switcher:** Seamlessly switch catalog views across **Windows (Default)**, **Android**, **Linux**, **macOS**, and **All**.
+- **Dual-Layer Guardrails:**
+  - **UI State:** When browsing non-Windows apps, Download and Install actions are completely replaced by an informative **"Not available on Windows"** banner with safe external links (*View on GitHub / GitLab / Official Site*, *Copy Link*).
+  - **Service-Layer Enforcement:** Both `DownloadManager` and `WindowsInstallerService` programmatically validate and reject any non-Windows assets even if the UI were bypassed.
 
-<p align="center">
-  <strong>Sources Supported</strong><br>
-  <a href="https://github.com"><img src="https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub"></a>
-  <a href="https://gitlab.com"><img src="https://img.shields.io/badge/GitLab-FC6D26?style=for-the-badge&logo=gitlab&logoColor=white" alt="GitLab"></a>
-  <a href="https://codeberg.org"><img src="https://img.shields.io/badge/Codeberg-2185D0?style=for-the-badge&logo=codeberg&logoColor=white" alt="Codeberg"></a>
-</p>
+### 📦 Smart Install Tiers & Architecture Selection
+- **Install Tiers:**
+  - **Tier A (Direct Release Install):** Resolves releases from GitHub repositories, identifies Windows binary assets (`.exe`, `.msi`, `.msix`, `.zip`), and enables direct one-click installation.
+  - **Tier B (Direct File URL):** Handles direct binary file URLs with checksum verification.
+  - **Tier C (Official Website):** For web portals or repository mirrors without binary releases, presents a clear **"Open official download page"** action without scraping or guessing.
+- **Hardware Architecture Detection:** Automatically queries the machine architecture (`x64`, `ARM64`, `x86`) and ranks compatible packages, offering users the recommended binary while preserving the ability to select alternative package formats.
 
-<br>
-<p align="center">
-<a href="https://trendshift.io/repositories/15654?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-15654" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/15654/daily?language=TypeScript" alt="RookieEnough%2FOrion-Store | Trendshift" width="250" height="55"/></a>
-</p>
+### 🛡️ Enterprise-Grade Desktop Security
+- **Authenticode Signature Verification:** Automatically inspects embedded digital signatures (`X509Certificate2`) for downloaded PE binaries (`.exe`, `.msi`), displaying signer information, validity status, or explicit **"Unsigned"** warnings before execution.
+- **SHA-256 Hash Verification:** Computes and verifies SHA-256 checksums against catalog and release metadata.
+- **Zip-Slip Traversal Prevention:** Hardened ZIP extraction routines normalize paths and enforce directory boundary confinement.
+- **Credential Protection:** VirusTotal API keys and optional GitHub Personal Access Tokens are stored securely using Windows **DPAPI** and **PasswordVault**, never in plain text.
+- **Zero Telemetry:** No analytics, no advertising SDKs, and no tracking cookies.
 
-<details>
-<summary><b>🔍 Orion does not have any trackers!</b></summary>
+### 🔍 Windows App Detection & Tracking
+- Scans installed applications across 64-bit and WOW6432Node Windows Registry keys (`HKLM` and `HKCU`).
+- Enumerates modern WinRT/UWP packages via `Windows.Management.Deployment.PackageManager`.
+- Maintains a local tracking database (`%LocalAppData%\OrionStore\installed_portable.json`) for portable applications installed by Orion Store.
 
-Saw a few people asking about "trackers" flagged in App Manager or TrackerControl, so wanted to clear up what those actually are.
+### ⚡ Offline Reliability & Resilience
+- Multi-mirror remote fetching with automatic fallback to local disk cache (`%LocalAppData%\OrionStore\Cache\cached_catalog.json`) and an embedded catalog (`Assets/local_apps.json`).
 
-**What they actually are:**
+---
 
-- Scanners flag library components by name, not active surveillance.
-- Everything flagged comes from one library, the Unity Ads SDK behind the optional "Fuel the Code" quest.
-- Since 2.4.5 Orion strips everything from it that Fuel the Code does not need: its app-start hook, its background service, and the advertising ID and ad-measurement permissions. What is left is **`FullScreenWebViewDisplay`**, the screen that plays the video you chose to watch.
+## Project Architecture
 
-**How it works in Orion:**
-
-- Unity only starts when you tap to watch a rewarded video in "Fuel the Code" for XP. It never runs at app start.
-- There are zero background services, no banner ads, and no advertising ID. Orion collects and sends no user data.
-- If you do not care about the rewarded XP quest, you can block it right there in App Manager. The store will still work completely fine.
-
-</details>
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/m3-divider-dark.svg">
-    <img src="assets/m3-divider-light.svg" alt="" width="100%">
-  </picture>
-</p>
-
-## <img src="assets/shape-1.svg" height="26" align="top"> Orion Store 2.0 · Native at last
-
-Orion Store has been **rebuilt from the ground up as a native Android app**. The web app has been rewritten in Kotlin and Jetpack Compose on **Material 3 Expressive**, with spring motion, shape morphing, a new storefront and features that were never possible before. Updating from 1.x is a normal install over the old app, and your profile, XP, badges, favorites and settings come along.
-
-Read the full [2.0.0 release notes](RELEASE_NOTES_2.0.0.md).
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/m3-divider-dark.svg">
-    <img src="assets/m3-divider-light.svg" alt="" width="100%">
-  </picture>
-</p>
-
-## <img src="assets/shape-2.svg" height="26" align="top"> Overview
-
-Orion Store is an Android-first store client that leans on public sources instead of hiding everything behind a private service layer. The app pulls catalog data from public JSON, resolves releases from GitHub, GitLab, and Codeberg, and keeps the delivery path understandable enough that users can see where things come from and how updates are discovered.
-
-This repository is the client application itself. The live catalog, configuration, notices, and release metadata used by the app are maintained separately in [RookieEnough/Orion-Data](https://github.com/RookieEnough/Orion-Data), which keeps the UI and the store data cleanly separated.
-
-> Orion is built for people who care where software comes from, not just how quickly it downloads.
-
-At a glance:
-
-- Public JSON catalog with inspectable configuration
-- Multi-source releases (GitHub, GitLab, Codeberg)
-- Native install, update, and security tooling
-- Skip Android's 24-hour unverified-app wait with built-in wireless install
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/m3-divider-dark.svg">
-    <img src="assets/m3-divider-light.svg" alt="" width="100%">
-  </picture>
-</p>
-
-## <img src="assets/shape-3.svg" height="26" align="top"> What makes Orion different
-
-The point of Orion is not to pretend infrastructure does not exist. It is to reduce hidden infrastructure and move as much of the important behavior as possible into public, inspectable layers. Catalog entries are plain data. Release sources stay visible. Automation is handled through workflows and workers that can be reviewed, rather than through a black-box backend that users have to trust on faith.
-
-That design carries through the app. Orion tracks installed packages, surfaces updates, manages download state, installs natively, and exposes developer-facing diagnostics for people who want to see what the store is actually doing under the hood.
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/m3-divider-dark.svg">
-    <img src="assets/m3-divider-light.svg" alt="" width="100%">
-  </picture>
-</p>
-
-## <img src="assets/shape-4.svg" height="26" align="top"> Feature atlas
-
-<table>
-  <tr>
-    <td width="50%" valign="top">
-      <img src="assets/feature-release.svg" width="64" alt="Release intelligence icon"><br>
-      <strong>Release intelligence</strong><br>
-      Orion reads public metadata, resolves upstream releases, and keeps source provenance visible instead of burying it behind a store-owned backend. It reads your device architecture and recommends the right APK.<br><br>
-      <code>Public JSON</code> <code>Mirrors</code> <code>Multi-source parsing</code> <code>ABI detection</code>
-    </td>
-    <td width="50%" valign="top">
-      <img src="assets/feature-update.svg" width="64" alt="Update center icon"><br>
-      <strong>Update center</strong><br>
-      A native download engine with live notifications, a persistent queue, batch updates, and per-app ignore rules you can undo from My Apps.<br><br>
-      <code>Foreground downloads</code> <code>Queue</code> <code>Ignored updates</code>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <img src="assets/feature-install.svg" width="64" alt="Native install flow icon"><br>
-      <strong>Native install flow</strong><br>
-      System installer, a specific installer, Shizuku silent installs, or the built-in <strong>wireless ADB</strong> installer that skips Android's 24-hour wait for unverified apps. Set it up once through a guided notification.<br><br>
-      <code>Wireless ADB</code> <code>Shizuku</code> <code>Installer choice</code>
-    </td>
-    <td width="50%" valign="top">
-      <img src="assets/feature-sentinel.svg" width="64" alt="Sentinel security icon"><br>
-      <strong>Sentinel security</strong><br>
-      Security tooling is built into the product: malware scans for installed apps and VirusTotal checks for any APK before it is installed.<br><br>
-      <code>Sentinel</code> <code>VirusTotal</code> <code>Threat database</code>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <img src="assets/feature-tools.svg" width="64" alt="Power tools icon"><br>
-      <strong>Guardian power tools</strong><br>
-      Revoke risky permissions, pull the APK out of any app, and remove or restore system apps without root, rated by the Universal Android Debloater database.<br><br>
-      <code>Permissions</code> <code>APK extraction</code> <code>Debloater</code>
-    </td>
-    <td width="50%" valign="top">
-      <img src="assets/feature-dev.svg" width="64" alt="Developer visibility icon"><br>
-      <strong>Developer visibility</strong><br>
-      Mirror source, cache state, GitHub API quota, package detective, raw metadata explorer and source switching, all in Settings › Developer.<br><br>
-      <code>Developer mode</code> <code>Diagnostics</code> <code>Metadata inspection</code>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <img src="assets/feature-ai.svg" width="64" alt="Orion AI icon"><br>
-      <strong>Orion AI</strong><br>
-      Describe the app you need and Orion AI finds it in the catalog, or ask how any Orion feature works. Bring your own Gemini, ChatGPT or Claude key, or run a model right on the phone, offline.<br><br>
-      <code>Streaming chat</code> <code>On-device models</code> <code>One-tap installs</code>
-    </td>
-    <td width="50%" valign="top">
-      <img src="assets/feature-palette.svg" width="64" alt="Palette maker icon"><br>
-      <strong>Palettes, your way</strong><br>
-      Fourteen tuned palettes plus a palette maker: pick a seed color, a style and preview every tone in Light, Dusk, Dark and OLED before you save it.<br><br>
-      <code>Material You</code> <code>Palette maker</code> <code>Four themes</code>
-    </td>
-  </tr>
-</table>
-
-### And a lot more
-
-- **Material 3 Expressive design:** expressive springs, shape morphs, wavy progress, icon hand-off animations, and Material You colors.
-- **A real level system:** every ad, download, submission and Dino Run earns XP. Pilot cards turn Bronze, Silver and Gold, and you can flip yours to sign it.
-- **Fuel the Code:** a story-driven support quest, now in Chapter 2 · The Forkening, with bosses and badges to earn.
-- **Community:** submit apps straight from a GitHub, GitLab or Codeberg repo, build custom bundles, and climb the leaderboard.
-- **Personalization:** light, dark, dusk and OLED themes, custom fonts, pixel pull-to-refresh characters, layouts and visible tabs.
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/m3-divider-dark.svg">
-    <img src="assets/m3-divider-light.svg" alt="" width="100%">
-  </picture>
-</p>
-
-## <img src="assets/shape-5.svg" height="26" align="top"> Screenshots
-
-<table>
-  <tr>
-    <td width="25%" align="center"><img src="assets/screenshots/home.jpg?v=2" alt="Storefront" width="100%"><br><sub>Storefront</sub></td>
-    <td width="25%" align="center"><img src="assets/screenshots/detail.jpg?v=2" alt="App details" width="100%"><br><sub>App details</sub></td>
-    <td width="25%" align="center"><img src="assets/screenshots/myapps.jpg?v=2" alt="My Apps" width="100%"><br><sub>My Apps</sub></td>
-    <td width="25%" align="center"><img src="assets/screenshots/xtra.jpg?v=2" alt="Orion Xtra" width="100%"><br><sub>Orion Xtra</sub></td>
-  </tr>
-  <tr>
-    <td width="25%" align="center"><img src="assets/screenshots/profile.jpg?v=2" alt="Pilot profile" width="100%"><br><sub>Pilot profile</sub></td>
-    <td width="25%" align="center"><img src="assets/screenshots/badges.jpg?v=2" alt="Badge archive" width="100%"><br><sub>Badge archive</sub></td>
-    <td width="25%" align="center"><img src="assets/screenshots/quest.jpg?v=2" alt="Fuel the Code" width="100%"><br><sub>Fuel the Code</sub></td>
-    <td width="25%" align="center"><img src="assets/screenshots/about.jpg?v=2" alt="About" width="100%"><br><sub>About</sub></td>
-  </tr>
-  <tr>
-    <td width="25%" align="center"><img src="assets/screenshots/settings.jpg?v=2" alt="Settings" width="100%"><br><sub>Settings</sub></td>
-    <td width="25%" align="center"><img src="assets/screenshots/welcome.jpg?v=2" alt="Welcome to 2.0" width="100%"><br><sub>Welcome to 2.0</sub></td>
-    <td width="25%" align="center"><img src="assets/screenshots/dark.jpg?v=2" alt="Dark theme" width="100%"><br><sub>Dark theme</sub></td>
-    <td width="25%" align="center"><img src="assets/screenshots/pc.jpg?v=2" alt="PC catalog" width="100%"><br><sub>PC catalog</sub></td>
-  </tr>
-</table>
-
-<p align="center">
-  <a href="https://www.youtube.com/watch?v=dIzAipwgj6A">
-    <img src="https://img.shields.io/badge/Watch_Demo-FF0000?style=for-the-badge&logo=youtube&logoColor=white" alt="Watch Demo">
-  </a>
-</p>
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/m3-divider-dark.svg">
-    <img src="assets/m3-divider-light.svg" alt="" width="100%">
-  </picture>
-</p>
-
-## <img src="assets/shape-6.svg" height="26" align="top"> Official developer badges
-
-If you are a developer, you can promote that your application is hosted on Orion Store by adding our official badge to your repository's readme or your product website.
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/RookieEnough/Orion-Store/refs/heads/main/assets/orion-badge.png" alt="Get it on Orion Store" height="60">
-</p>
-
-### How to Get Your Badge Integration Link:
-1. **Submit Your App**: Submit your application to the Orion Store via this client or our repository submission form.
-2. **Enable Developer Mode**: Once approved and live in the store, open Orion Store and tap the **Orion Store** title in the header 7 times to unlock Developer Mode.
-3. **Copy Integration Code**: Open your app's detail page, expand **Developer Deep Links**, and copy the **Markdown Badge** for your repository's README or the **HTML Badge** for your website.
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/m3-divider-dark.svg">
-    <img src="assets/m3-divider-light.svg" alt="" width="100%">
-  </picture>
-</p>
-
-## <img src="assets/shape-7.svg" height="26" align="top"> How the project is structured
-
-Orion Store 2.0 is a single-activity Jetpack Compose app in MVVM style. A tour of the code lives in [ARCHITECTURE.md](ARCHITECTURE.md).
-
-<table>
-  <tr>
-    <td><strong>Area</strong></td>
-    <td><strong>Responsibility</strong></td>
-  </tr>
-  <tr>
-    <td><code>app/src/main/java/com/orion/store/ui/</code></td>
-    <td>Compose screens, the theme and motion system, and <code>MainViewModel</code>, which orchestrates loading, downloads, installs and overlays</td>
-  </tr>
-  <tr>
-    <td><code>app/src/main/java/com/orion/store/data/</code></td>
-    <td>Catalog processing, persisted settings and data stores, version logic, XP and levels</td>
-  </tr>
-  <tr>
-    <td><code>app/src/main/java/com/orion/store/platform/</code></td>
-    <td>Package tracking, the download service, Shizuku and wireless ADB installs, VirusTotal, and the 1.x data carry-over</td>
-  </tr>
-  <tr>
-    <td><code>tools/</code></td>
-    <td>Generators for the Material Symbols icon set and the color schemes</td>
-  </tr>
-  <tr>
-    <td><code>Orion Legacy/</code></td>
-    <td>The original React + Capacitor web app (1.x), kept for reference and for the web build</td>
-  </tr>
-</table>
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/m3-divider-dark.svg">
-    <img src="assets/m3-divider-light.svg" alt="" width="100%">
-  </picture>
-</p>
-
-## <img src="assets/shape-8.svg" height="26" align="top"> Building
-
-You need **JDK 21** (the JetBrains Runtime bundled with Android Studio works) and the Android SDK.
-
-```bash
-./gradlew :app:assembleDebug          # debug APK
-./gradlew :app:testDebugUnitTest      # logic tests
+```
+d:\vs code\Orion-Store-main/
+├── Orion PC/                     # Native Windows Desktop Application
+│   ├── Orion.slnx                # Visual Studio / .NET Solution
+│   ├── ARCHITECTURE.md           # Detailed Windows Architecture & Porting Specs
+│   ├── README.md                 # Orion PC Specific Instructions
+│   ├── src/
+│   │   ├── Orion.Core/           # Platform-agnostic C# domain logic (.NET 8)
+│   │   │   ├── Models/           # AppItem, TargetPlatform, InstallTier, StoreConfig
+│   │   │   └── Services/         # PlatformParser, AssetResolver, VersionService, HashVerifier
+│   │   ├── Orion.Platform.Windows/ # Windows SDK / WinRT integrations (.NET 8 Windows)
+│   │   │   └── Services/         # WindowsAppTracker, WindowsInstallerService, DownloadManager
+│   │   └── Orion.App/            # WinUI 3 Application (Windows App SDK 1.6, .NET 10/8)
+│   │       ├── Views/            # HomePage, SearchPage, AppDetailPage, MyAppsPage, etc.
+│   │       └── ViewModels/       # MVVM ViewModels with CommunityToolkit.Mvvm
+│   └── tests/
+│       └── Orion.Tests/          # xUnit Test Suite (85 automated tests)
+├── app/                          # Original Android Client (Kotlin, Jetpack Compose)
+└── Orion Legacy/                 # Original Web Client (React + Capacitor)
 ```
 
-Release builds read the signing key from a local `keystore.properties` (never committed):
+---
 
-```properties
-storeFile=/path/to/your.keystore
-keyAlias=your-alias
-storePassword=...
-keyPassword=...
+## Prerequisites
+
+- **Operating System:** Windows 10 (version 1809 / build 17763 or higher) or Windows 11 (x64 / ARM64).
+- **Tooling:**
+  - [.NET SDK 8.0](https://dotnet.microsoft.com/download/dotnet/8.0) or [.NET SDK 10.0](https://dotnet.microsoft.com/)
+  - [Visual Studio 2022](https://visualstudio.microsoft.com/) (v17.8+) with *.NET Desktop Development* and *Windows App SDK C# Templates*, or the **.NET CLI**.
+  - [Windows App SDK 1.6 Runtime](https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/downloads).
+
+---
+
+## Build, Test & Run
+
+### 1. Build Solution
+```powershell
+dotnet build "Orion PC/Orion.slnx"
 ```
 
-```bash
-./gradlew :app:assembleRelease
+### 2. Run Automated Tests
+Execute the comprehensive test suite (covers catalog filtering, platform parsing, install-tier classification, architecture ranking, hash checking, and security enforcement):
+```powershell
+dotnet test "Orion PC/tests/Orion.Tests/Orion.Tests.csproj"
+```
+*(85 tests passing)*
+
+### 3. Run Application (Unpackaged)
+Launch the WinUI 3 desktop client directly:
+```powershell
+dotnet run --project "Orion PC/src/Orion.App/Orion.App.csproj"
 ```
 
-Or open the project folder in Android Studio and run the `app` configuration on a device.
+---
 
-### Legacy web app
+## Publishing & Packaging
 
-The 1.x web app lives in [`Orion Legacy/`](Orion%20Legacy) and still builds as before:
+### Standalone Self-Contained Binary
+Produce a portable, single-folder release for 64-bit Windows:
+```powershell
+dotnet publish "Orion PC/src/Orion.App/Orion.App.csproj" -c Release -r win-x64 --self-contained -p:WindowsPackageType=None
+```
+Output path: `Orion PC/src/Orion.App/bin/Release/net10.0-windows10.0.26100.0/win-x64/publish/Orion.App.exe`
 
-```bash
-cd "Orion Legacy"
-npm install
-npm run dev
+### MSIX Package
+In `Orion.App.csproj`, set `<WindowsPackageType>MSIX</WindowsPackageType>` and run:
+```powershell
+dotnet publish "Orion PC/src/Orion.App/Orion.App.csproj" -c Release -r win-x64 /p:GenerateAppInstallerFile=false /p:AppxPackageSigningEnabled=false
 ```
 
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/m3-divider-dark.svg">
-    <img src="assets/m3-divider-light.svg" alt="" width="100%">
-  </picture>
-</p>
+---
 
-## <img src="assets/shape-9.svg" height="26" align="top"> Data, workers and automation
+## Porting Decisions from Android
 
-Orion is best understood as backend-light rather than backend-free. The catalog and remote configuration are public, but the project still uses a few narrow pieces of infrastructure where they make sense: Cloudflare worker code for leaderboard relay, image proxying, delta aggregation, submission handling and Sentinel support lives in `Orion Legacy/workers/`, and automation runs through GitHub Actions here and in Orion-Data.
+| Android Feature | Windows Equivalent | Status & Decision |
+|---|---|---|
+| **Android PackageManager** | `WindowsAppTracker` (4-way Registry + WinRT + Portable DB) | **Replaced** with comprehensive Windows software detection. |
+| **Shizuku / Root / ADB** | `WindowsInstallerService` (.exe, .msi, .msix, safe .zip) | **Replaced** with standard Windows UAC and installation handlers. |
+| **Foreground Download Service** | `DownloadManager` with HTTP Range resume & JSON queue | **Replaced** with desktop background download manager. |
+| **Android Debloater (Guardian)** | None | **Dropped** (inapplicable to Windows OS architecture; avoids risky registry tampering). |
+| **Unity Ads SDK (Fuel the Code)** | None | **Dropped** (desktop application maintains zero ads and zero telemetry). |
+| **Material 3 Expressive UI** | WinUI 3 Fluent Design (Mica, custom TitleBar, NavigationView) | **Rebuilt** natively for Windows desktop user experience. |
 
-That split is intentional. The app stays focused on the client, while the data and automation layers remain separately inspectable.
+---
 
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/m3-divider-dark.svg">
-    <img src="assets/m3-divider-light.svg" alt="" width="100%">
-  </picture>
-</p>
+## License & Credits
 
-## <img src="assets/shape-1.svg" height="26" align="top"> Contributing
-
-Contributions are welcome, especially in the areas that matter most to a store client: installer reliability, release resolution, UI polish, Android behavior, security tooling, and documentation. If you are changing catalog entries or store metadata, that work usually belongs in the data repository or the submission flow rather than in this client codebase.
-
-Start with [ARCHITECTURE.md](ARCHITECTURE.md), then `ui/MainViewModel.kt`, `data/CatalogProcessor.kt` and `platform/AppTracker.kt` for how the store loads data, resolves releases and installs apps.
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/m3-divider-dark.svg">
-    <img src="assets/m3-divider-light.svg" alt="" width="100%">
-  </picture>
-</p>
-
-## <img src="assets/shape-2.svg" height="26" align="top"> Community
-
-The project lives across a few public surfaces:
-
-- `Website`: [orionstore.pages.dev](https://orionstore.pages.dev)
-- `Orion-Data`: [github.com/RookieEnough/Orion-Data](https://github.com/RookieEnough/Orion-Data)
-- `Discord`: [discord.com/invite/CrM6y4ujnq](https://discord.com/invite/CrM6y4ujnq)
-- `Ko-fi`: [ko-fi.com/rookie_z](https://ko-fi.com/rookie_z)
-- `PayPal`: [paypal.me/RookieEnough](https://paypal.me/RookieEnough)
-- `UPI ID`: `rookiez@ptyes`
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/m3-divider-dark.svg">
-    <img src="assets/m3-divider-light.svg" alt="" width="100%">
-  </picture>
-</p>
-
-## Credits
-
-- **[Install with Options](https://github.com/zacharee/InstallWithOptions)** by Zachary Wander (MIT): Orion's "Beyond install" sheet is inspired by its set of install options. Orion's version is its own implementation on top of `pm install`.
-- **[Dhizuku](https://github.com/iamr0s/Dhizuku)** and the **[Dhizuku API](https://github.com/iamr0s/Dhizuku-API)** by iamr0s (MIT): device owner installs and uninstalls.
-- **[Shizuku](https://github.com/RikkaApps/Shizuku)** by RikkaApps: silent installs and the Guardian tools.
-- **[Universal Android Debloater Next Generation](https://github.com/Universal-Debloater-Alliance/universal-android-debloater-next-generation)**: the package notes and removal ratings behind Debloat.
-
-<p align="center">
-  Made with 💜 by <strong>RookieZ</strong>
-</p>
-<!-- Orion Store community contributor note 💜 -->
-<!-- Orion Store community contributor note -->
+- **License:** Orion Store for PC is licensed under the **GNU General Public License v3.0 (GPL-3.0)**, preserving the license of the original upstream project.
+- **Original Android Project:** [Orion Store](https://github.com/RookieEnough/Orion-Store) by **RookieZ** ([RookieEnough](https://github.com/RookieEnough)).
+- **Catalog Repository:** Maintained transparently by the community at [RookieEnough/Orion-Data](https://github.com/RookieEnough/Orion-Data).
+- **Third-Party Credits & Inspiration:**
+  - Upstream Android components: *Install with Options* (Zachary Wander), *Dhizuku* (iamr0s), *Shizuku* (RikkaApps), *Universal Android Debloater Next Generation*.
+  - Windows frameworks: Microsoft .NET, Windows App SDK, WinUI 3, CommunityToolkit.Mvvm, xUnit.
