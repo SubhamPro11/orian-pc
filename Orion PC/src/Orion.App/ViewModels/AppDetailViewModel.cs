@@ -84,7 +84,7 @@ public partial class AppDetailViewModel : ObservableObject
         App = app;
         IsWindowsApp = app.IsWindowsApp;
 
-        // Check installed status
+        // Check installed status safely
         var installed = _appTracker.FindInstalledApp(app);
         IsInstalled = installed != null;
         InstalledVersion = installed?.DisplayVersion;
@@ -135,6 +135,8 @@ public partial class AppDetailViewModel : ObservableObject
         }
     }
 
+    public Func<string, string, Task<bool>>? ConfirmActionAsync { get; set; }
+
     [RelayCommand]
     public async Task InstallAsync()
     {
@@ -150,35 +152,87 @@ public partial class AppDetailViewModel : ObservableObject
         IsBusy = true;
         StatusMessage = "Queueing download...";
 
+        DownloadItem? downloadItem = null;
+        Action<DownloadItem>? onProgress = null;
+        Action<DownloadItem>? onCompleted = null;
+
         try
         {
             // Enforce service-level refusal
             _installerService.ValidateAssetForWindows(App, SelectedVariant);
 
-            var downloadItem = _downloadManager.Enqueue(App, SelectedVariant);
+            downloadItem = _downloadManager.Enqueue(App, SelectedVariant, SelectedVariant.Sha256 ?? App.Sha256);
             StatusMessage = $"Downloading {App.Name}...";
 
-            var tcs = new TaskCompletionSource<bool>();
-            void OnCompleted(DownloadItem item)
+            var tcs = new TaskCompletionSource<DownloadItem>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            onCompleted = item =>
             {
                 if (item.Id == downloadItem.Id)
                 {
-                    _downloadManager.DownloadCompleted -= OnCompleted;
-                    tcs.TrySetResult(true);
+                    tcs.TrySetResult(item);
                 }
-            }
-            _downloadManager.DownloadCompleted += OnCompleted;
+            };
+
+            onProgress = item =>
+            {
+                if (item.Id == downloadItem.Id)
+                {
+                    if (item.Status == DownloadStatus.Failed)
+                    {
+                        tcs.TrySetException(new InvalidOperationException(item.ErrorMessage ?? "Download failed."));
+                    }
+                    else if (item.Status == DownloadStatus.Cancelled)
+                    {
+                        tcs.TrySetCanceled();
+                    }
+                }
+            };
+
+            _downloadManager.DownloadCompleted += onCompleted;
+            _downloadManager.DownloadProgressChanged += onProgress;
 
             await _downloadManager.StartAsync(downloadItem.Id);
-            await tcs.Task;
+            var completedItem = await tcs.Task;
 
-            // Pre-install Authenticode and VirusTotal inspection
-            SignatureInfo = _downloadManager.CheckAuthenticode(downloadItem.LocalFilePath);
+            // Pre-install Authenticode inspection
+            SignatureInfo = _downloadManager.CheckAuthenticode(completedItem.LocalFilePath);
             StatusMessage = $"Verifying: {SignatureInfo.StatusMessage}";
+
+            // Security gate: require user confirmation for unverified hashes or unsigned binaries
+            bool isHashVerified = completedItem.HashMatches == true;
+            bool isSignatureValid = SignatureInfo.IsValid;
+
+            if (!isHashVerified || !isSignatureValid)
+            {
+                string reason = (!isHashVerified && !isSignatureValid)
+                    ? "This package has not been verified by a catalog checksum and does not have a valid digital signature."
+                    : !isSignatureValid
+                        ? "This installer does not have a verified digital signature."
+                        : "This installer does not match a verified catalog checksum.";
+
+                string warningMessage = $"{reason}\n\n" +
+                    $"File: {Path.GetFileName(completedItem.LocalFilePath)}\n" +
+                    $"SHA-256: {completedItem.ComputedSha256 ?? "Unknown"}\n" +
+                    $"Signature: {SignatureInfo.StatusMessage}\n\n" +
+                    "Running unverified software may pose security risks. Do you want to proceed with the installation?";
+
+                bool userConfirmed = false;
+                if (ConfirmActionAsync != null)
+                {
+                    userConfirmed = await ConfirmActionAsync("Security Warning: Unverified Application", warningMessage);
+                }
+
+                if (!userConfirmed)
+                {
+                    StatusMessage = "Installation cancelled: package unverified.";
+                    return;
+                }
+            }
 
             // Run installer
             StatusMessage = "Running installer...";
-            var result = await _installerService.InstallAsync(App, SelectedVariant, downloadItem.LocalFilePath);
+            var result = await _installerService.InstallAsync(App, SelectedVariant, completedItem.LocalFilePath);
 
             if (result.Success)
             {
@@ -191,12 +245,18 @@ public partial class AppDetailViewModel : ObservableObject
                 StatusMessage = $"Install message: {result.Message}";
             }
         }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "Download was cancelled.";
+        }
         catch (Exception ex)
         {
             StatusMessage = $"Error: {ex.Message}";
         }
         finally
         {
+            if (onCompleted != null) _downloadManager.DownloadCompleted -= onCompleted;
+            if (onProgress != null) _downloadManager.DownloadProgressChanged -= onProgress;
             IsBusy = false;
         }
     }
@@ -204,21 +264,33 @@ public partial class AppDetailViewModel : ObservableObject
     [RelayCommand]
     public void OpenProjectSource()
     {
-        var url = App?.RepoUrl ?? App?.GithubRepo?.Insert(0, "https://github.com/") ?? App?.OfficialSite;
-        if (!string.IsNullOrEmpty(url))
+        string? url = null;
+        if (!string.IsNullOrWhiteSpace(App?.RepoUrl))
         {
-            Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+            url = App.RepoUrl.Trim();
         }
+        else if (!string.IsNullOrWhiteSpace(App?.GithubRepo))
+        {
+            var gh = App.GithubRepo.Trim();
+            url = gh.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || gh.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+                ? gh
+                : $"https://github.com/{gh.TrimStart('/')}";
+        }
+        else if (!string.IsNullOrWhiteSpace(App?.OfficialSite))
+        {
+            url = App.OfficialSite.Trim();
+        }
+
+        SafeOpenUrl(url);
     }
 
     [RelayCommand]
     public void OpenOfficialSite()
     {
-        var url = App?.OfficialSite ?? App?.DownloadUrl;
-        if (!string.IsNullOrEmpty(url) && url != "#")
-        {
-            Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
-        }
+        var url = !string.IsNullOrWhiteSpace(App?.OfficialSite) && App.OfficialSite != "#"
+            ? App.OfficialSite
+            : App?.DownloadUrl;
+        SafeOpenUrl(url);
     }
 
     [RelayCommand]
@@ -226,13 +298,25 @@ public partial class AppDetailViewModel : ObservableObject
     {
         if (App == null) return;
         var url = App.OfficialSite ?? App.RepoUrl ?? App.DownloadUrl;
-        if (!string.IsNullOrEmpty(url))
+        if (!string.IsNullOrWhiteSpace(url) && url != "#" &&
+            Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri) &&
+            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
         {
             var dataPackage = new global::Windows.ApplicationModel.DataTransfer.DataPackage();
-            dataPackage.SetText(url);
+            dataPackage.SetText(uri.AbsoluteUri);
             global::Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(dataPackage);
             StatusMessage = "Link copied to clipboard!";
         }
     }
-}
 
+    private static void SafeOpenUrl(string? rawUrl)
+    {
+        if (string.IsNullOrWhiteSpace(rawUrl) || rawUrl == "#") return;
+
+        if (Uri.TryCreate(rawUrl.Trim(), UriKind.Absolute, out var uri) &&
+            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+        {
+            Process.Start(new ProcessStartInfo { FileName = uri.AbsoluteUri, UseShellExecute = true });
+        }
+    }
+}

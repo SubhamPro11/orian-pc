@@ -10,9 +10,9 @@ Orion Store for PC brings the transparent, multi-source software catalog to Wind
 
 - **Operating System:** Windows 10 (version 1809 / build 17763 or higher) or Windows 11 (x64 or ARM64).
 - **Development Tooling:**
-  - [.NET SDK 8.0](https://dotnet.microsoft.com/download/dotnet/8.0) or [.NET SDK 10.0](https://dotnet.microsoft.com/)
+  - [.NET SDK 8.0](https://dotnet.microsoft.com/download/dotnet/8.0) (LTS)
   - [Visual Studio 2022](https://visualstudio.microsoft.com/) (version 17.8+) with the **.NET Desktop Development** and **Windows App SDK C# Templates** workloads, OR the **.NET CLI**.
-  - [Windows App SDK 1.6 Runtime](https://learn.microsoft.com/en-us/windows/apps/windows-app-sdk/downloads) (installed automatically or redistributable).
+  - Windows App SDK 1.6 (packaged standalone with `<WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>`, no external runtime installation required).
 
 ---
 
@@ -21,21 +21,18 @@ Orion Store for PC brings the transparent, multi-source software catalog to Wind
 Open a PowerShell or terminal prompt in the project root:
 
 ```powershell
-# Build entire solution
-dotnet build "Orion PC/Orion.slnx"
-```
+# Build entire solution for x64
+dotnet build "Orion PC/Orion.slnx" -c Debug -p:Platform=x64
 
-To build a specific configuration (e.g. Release for x64):
-
-```powershell
-dotnet build "Orion PC/src/Orion.App/Orion.App.csproj" -c Release -r win-x64
+# Build entire solution for ARM64
+dotnet build "Orion PC/Orion.slnx" -c Release -p:Platform=arm64
 ```
 
 ---
 
 ## Running the Unit Tests
 
-The test suite covers version comparison, catalog filtering, asset matching, hash verification, security checks, and platform service operations (85 automated tests):
+The test suite covers version comparison, catalog filtering, asset matching, SHA-256 integrity, Authenticode verification, process security, and system readiness checks (119 automated tests):
 
 ```powershell
 dotnet test "Orion PC/tests/Orion.Tests/Orion.Tests.csproj"
@@ -59,10 +56,10 @@ dotnet run --project "Orion PC/src/Orion.App/Orion.App.csproj"
 Generate a self-contained single-folder release without requiring external .NET runtime installations:
 
 ```powershell
-dotnet publish "Orion PC/src/Orion.App/Orion.App.csproj" -c Release -r win-x64 --self-contained -p:WindowsPackageType=None
+dotnet publish "Orion PC/src/Orion.App/Orion.App.csproj" -c Release -r win-x64 --self-contained -p:WindowsPackageType=None -p:WindowsAppSDKSelfContained=true -p:PublishReadyToRun=true -p:PublishTrimmed=false
 ```
 The output executable will be generated at:
-`Orion PC/src/Orion.App/bin/Release/net10.0-windows10.0.26100.0/win-x64/publish/Orion.App.exe`
+`Orion PC/src/Orion.App/bin/Release/net8.0-windows10.0.19041.0/win-x64/publish/Orion.App.exe`
 
 ### 2. Packaged MSIX
 To create an MSIX package:

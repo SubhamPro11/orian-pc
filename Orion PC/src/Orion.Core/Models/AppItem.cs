@@ -6,7 +6,8 @@ public record AppVariant(
     [property: JsonPropertyName("arch")] string Arch = "",
     [property: JsonPropertyName("url")] string Url = "",
     [property: JsonPropertyName("size")] long? Size = null,
-    [property: JsonPropertyName("packageType")] PackageType PackageType = PackageType.Unknown
+    [property: JsonPropertyName("packageType")] PackageType PackageType = PackageType.Unknown,
+    [property: JsonPropertyName("sha256")] string? Sha256 = null
 );
 
 public record VersionOption(
@@ -45,7 +46,8 @@ public record AppItem(
     [property: JsonPropertyName("screenshots")] IReadOnlyList<string>? Screenshots = null,
     [property: JsonPropertyName("officialSite")] string? OfficialSite = null,
     [property: JsonPropertyName("patches")] IReadOnlyList<string>? Patches = null,
-    [property: JsonPropertyName("stars")] int? Stars = null
+    [property: JsonPropertyName("stars")] int? Stars = null,
+    [property: JsonPropertyName("sha256")] string? Sha256 = null
 )
 {
     public IReadOnlyList<AppVariant> VariantsList => Variants ?? Array.Empty<AppVariant>();

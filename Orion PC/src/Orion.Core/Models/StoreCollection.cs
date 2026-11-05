@@ -43,7 +43,8 @@ public record ReleaseAssetInfo(
     string Name,
     string DownloadUrl,
     long? Size,
-    string? ContentType = null
+    string? ContentType = null,
+    string? Sha256 = null
 );
 
 public record ReleaseInfo(

@@ -134,5 +134,76 @@ public class WindowsInstallerServiceTests
             if (File.Exists(tempZipPath)) File.Delete(tempZipPath);
         }
     }
+
+    [Theory]
+    [InlineData("..")]
+    [InlineData("../evil")]
+    [InlineData("CON")]
+    [InlineData("PRN")]
+    [InlineData("AUX")]
+    [InlineData("NUL")]
+    [InlineData("COM1")]
+    [InlineData("LPT1")]
+    [InlineData("trailing.")]
+    [InlineData("invalid/path/traversal")]
+    public void TrySanitizeId_RejectsMaliciousAndReservedIds(string maliciousId)
+    {
+        bool isValid = WindowsInstallerService.TrySanitizeId(maliciousId, out var sanitized);
+        Assert.False(isValid);
+        Assert.Empty(sanitized);
+    }
+
+    [Fact]
+    public void TrySanitizeId_AcceptsValidAppIds()
+    {
+        bool isValid = WindowsInstallerService.TrySanitizeId("flow-launcher_1.17", out var sanitized);
+        Assert.True(isValid);
+        Assert.Equal("flow-launcher_1.17", sanitized);
+    }
+
+    [Theory]
+    [InlineData("MsiExec.exe /X{12345678-ABCD-1234-ABCD-123456789ABC} /qn", "msiexec.exe", "/x{12345678-ABCD-1234-ABCD-123456789ABC} /qn")]
+    [InlineData("\"C:\\Program Files\\App\\uninstall.exe\" /silent", "C:\\Program Files\\App\\uninstall.exe", "/silent")]
+    [InlineData("C:\\Tools\\unins000.exe", "C:\\Tools\\unins000.exe", "")]
+    public void TryParseUninstallCommand_ParsesCommandsSafelyWithoutCmd(string rawCommand, string expectedExe, string expectedArgs)
+    {
+        bool success = WindowsInstallerService.TryParseUninstallCommand(rawCommand, out var exe, out var args);
+        Assert.True(success);
+        Assert.Equal(expectedExe.ToLowerInvariant(), exe.ToLowerInvariant());
+        Assert.Equal(expectedArgs.ToLowerInvariant(), args.ToLowerInvariant());
+    }
+
+    [Fact]
+    public async Task InstallPortableZip_RejectsZipBombHighCompressionRatio()
+    {
+        var tempZipPath = Path.Combine(Path.GetTempPath(), $"zipbomb_test_{Guid.NewGuid()}.zip");
+        try
+        {
+            using (var zipStream = new FileStream(tempZipPath, FileMode.Create))
+            using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Create))
+            {
+                var entry = archive.CreateEntry("huge_sparse_file.bin", CompressionLevel.Optimal);
+                using var entryStream = entry.Open();
+                // Write repeating zeroes which compress down to tiny size (huge ratio > 100x)
+                var zeroBlock = new byte[65536];
+                for (int i = 0; i < 300; i++) // ~19.6 MB of zeros, compresses to ~20 KB (> 900x ratio)
+                {
+                    entryStream.Write(zeroBlock, 0, zeroBlock.Length);
+                }
+            }
+
+            var app = new AppItem(Id: $"bomb_app_{Guid.NewGuid():N}", Name: "ZipBomb App", Platform: "PC");
+            var variant = new AppVariant("X64", "https://example.com/bomb.zip", 100, PackageType.ZipPortable);
+
+            var result = await _installer.InstallAsync(app, variant, tempZipPath);
+
+            Assert.False(result.Success);
+            Assert.Contains("zip-bomb", result.Message, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            if (File.Exists(tempZipPath)) File.Delete(tempZipPath);
+        }
+    }
 }
 

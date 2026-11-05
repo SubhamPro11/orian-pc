@@ -1,0 +1,79 @@
+name: Windows CI
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'Orion PC/**'
+      - '.github/workflows/windows-ci.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'Orion PC/**'
+      - '.github/workflows/windows-ci.yml'
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore NuGet Packages
+        run: dotnet restore "Orion PC/Orion.slnx"
+
+      - name: Build Solution (Debug x64)
+        run: dotnet build "Orion PC/Orion.slnx" -c Debug -r win-x64 --no-restore
+
+      - name: Build Solution (Debug ARM64)
+        run: dotnet build "Orion PC/Orion.slnx" -c Debug -r win-arm64 --no-restore
+
+      - name: Run Unit Tests
+        run: dotnet test "Orion PC/tests/Orion.Tests/Orion.Tests.csproj" -c Debug --no-build --verbosity normal
+
+      - name: Build Solution (Release x64)
+        run: dotnet build "Orion PC/Orion.slnx" -c Release -r win-x64 --no-restore
+
+      - name: Build Solution (Release ARM64)
+        run: dotnet build "Orion PC/Orion.slnx" -c Release -r win-arm64 --no-restore
+
+      - name: Publish x64 (Unpackaged Standalone)
+        run: >
+          dotnet publish "Orion PC/src/Orion.App/Orion.App.csproj"
+          -c Release
+          -r win-x64
+          --self-contained true
+          -p:WindowsAppSDKSelfContained=true
+          -p:PublishReadyToRun=true
+          -p:PublishTrimmed=false
+          -o ./publish/win-x64
+
+      - name: Publish ARM64 (Unpackaged Standalone)
+        run: >
+          dotnet publish "Orion PC/src/Orion.App/Orion.App.csproj"
+          -c Release
+          -r win-arm64
+          --self-contained true
+          -p:WindowsAppSDKSelfContained=true
+          -p:PublishReadyToRun=true
+          -p:PublishTrimmed=false
+          -o ./publish/win-arm64
+
+      - name: Upload x64 Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OrionStore-PC-win-x64
+          path: ./publish/win-x64/
+
+      - name: Upload ARM64 Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: OrionStore-PC-win-arm64
+          path: ./publish/win-arm64/
+

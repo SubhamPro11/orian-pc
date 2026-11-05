@@ -20,19 +20,19 @@ public partial class AboutViewModel : ObservableObject
     private string _description = "A transparent, multi-source open-source store for Windows PC with no analytics, no tracking, and direct public release resolution.";
 
     [RelayCommand]
-    public void OpenGithub()
+    public static void OpenGithub()
     {
         Process.Start(new ProcessStartInfo { FileName = "https://github.com/RookieEnough/Orion-Store", UseShellExecute = true });
     }
 
     [RelayCommand]
-    public void OpenDiscord()
+    public static void OpenDiscord()
     {
         Process.Start(new ProcessStartInfo { FileName = "https://discord.com/invite/CrM6y4ujnq", UseShellExecute = true });
     }
 
     [RelayCommand]
-    public void OpenDonation()
+    public static void OpenDonation()
     {
         Process.Start(new ProcessStartInfo { FileName = "https://ko-fi.com/rookie_z", UseShellExecute = true });
     }

@@ -7,7 +7,7 @@ using Orion.Core.Services;
 
 namespace Orion.App.ViewModels;
 
-public partial class HomeViewModel : ObservableObject
+public partial class HomeViewModel : ObservableObject, IDisposable
 {
     private readonly ICatalogDataService _catalogService;
     private readonly IStorefrontEngine _storefrontEngine;
@@ -97,6 +97,12 @@ public partial class HomeViewModel : ObservableObject
     public void OpenApp(AppItem app)
     {
         _mainViewModel.SelectApp(app);
+    }
+
+    public void Dispose()
+    {
+        _mainViewModel.DeviceCategoryChanged -= OnDeviceCategoryChanged;
+        GC.SuppressFinalize(this);
     }
 }
 

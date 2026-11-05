@@ -22,15 +22,15 @@ Orion PC/
 │   │   │                             # DownloadManager (Range resume, Persistent queue, SHA-256, Authenticode)
 │   │   │                             # WindowsSecureStorage (DPAPI & PasswordVault)
 │   │   │                             # VirusTotalService (v3 API)
-│   ├── Orion.App/                    # WinUI 3 Desktop App (Windows App SDK 1.6, .NET 10/8)
+│   ├── Orion.App/                    # WinUI 3 Desktop App (Windows App SDK 1.6, .NET 8)
 │   │   ├── Views/                    # HomePage, SearchPage, AppDetailPage, MyAppsPage,
 │   │   │                             # DownloadsPage, SettingsPage, AboutPage
 │   │   ├── ViewModels/               # MainViewModel, HomeViewModel, SearchViewModel, AppDetailViewModel,
 │   │   │                             # MyAppsViewModel, DownloadsViewModel, SettingsViewModel, AboutViewModel
-│   │   ├── Services/                 # CatalogDataService, NavigationService
+│   │   ├── Services/                 # CatalogDataService, NavigationService, FileLogger
 │   │   └── Converters/               # XAML UI Converters
-└── tests/
-    └── Orion.Tests/                  # xUnit Test Suite (85 unit & integration tests)
+│   └── tests/
+│       └── Orion.Tests/              # xUnit Test Suite (119 unit & integration tests)
 ```
 
 ---

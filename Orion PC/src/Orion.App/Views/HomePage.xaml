@@ -28,6 +28,15 @@
                 </Grid>
             </Border>
 
+            <!-- Offline / Empty State -->
+            <Border Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="12" Padding="24" Visibility="{x:Bind ViewModel.Collections.Count, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Inverse}">
+                <StackPanel HorizontalAlignment="Center" Spacing="8">
+                    <FontIcon Glyph="&#xEB55;" FontSize="32" Foreground="{ThemeResource SystemAccentColor}" HorizontalAlignment="Center" />
+                    <TextBlock Text="No Catalog Data Available" Style="{ThemeResource SubtitleTextBlockStyle}" HorizontalAlignment="Center" />
+                    <TextBlock Text="You may be offline or the selected device filter has no matching entries. Try refreshing or switching the target device." Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center" />
+                </StackPanel>
+            </Border>
+
             <!-- Storefront Collections -->
             <ItemsControl ItemsSource="{x:Bind ViewModel.Collections, Mode=OneWay}">
                 <ItemsControl.ItemTemplate>

@@ -44,6 +44,9 @@ storefront_modules.example.json
 __pycache__/
 *.txt
 
+# Allow all files under Orion PC
+!Orion PC/**
+
 # .NET / Visual Studio (Orion PC)
 [Bb]in/
 [Oo]bj/

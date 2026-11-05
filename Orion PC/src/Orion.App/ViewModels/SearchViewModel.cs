@@ -7,11 +7,12 @@ using Orion.Core.Services;
 
 namespace Orion.App.ViewModels;
 
-public partial class SearchViewModel : ObservableObject
+public partial class SearchViewModel : ObservableObject, IDisposable
 {
     private readonly ICatalogDataService _catalogService;
     private readonly ICatalogProcessor _catalogProcessor;
     private readonly MainViewModel _mainViewModel;
+    private readonly Action<PlatformCategory> _deviceChangedHandler;
 
     [ObservableProperty]
     private string _query = string.Empty;
@@ -37,7 +38,8 @@ public partial class SearchViewModel : ObservableObject
         _catalogProcessor = catalogProcessor;
         _mainViewModel = mainViewModel;
 
-        _mainViewModel.DeviceCategoryChanged += _ => PerformSearch();
+        _deviceChangedHandler = _ => PerformSearch();
+        _mainViewModel.DeviceCategoryChanged += _deviceChangedHandler;
     }
 
     public void Initialize()
@@ -78,6 +80,12 @@ public partial class SearchViewModel : ObservableObject
     public void OpenApp(AppItem app)
     {
         _mainViewModel.SelectApp(app);
+    }
+
+    public void Dispose()
+    {
+        _mainViewModel.DeviceCategoryChanged -= _deviceChangedHandler;
+        GC.SuppressFinalize(this);
     }
 }
 

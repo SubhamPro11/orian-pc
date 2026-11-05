@@ -37,6 +37,17 @@ public class AssetResolverTests
     }
 
     [Theory]
+    [InlineData("installer.exe.zip", null, PackageType.ZipPortable)]
+    [InlineData("setup.zip", "https://example.com/download/app.zip?query=setup.exe", PackageType.ZipPortable)]
+    [InlineData("archive", "https://github.com/repo/releases/download/v1.0/installer.msi", PackageType.Msi)]
+    [InlineData("archive", "https://github.com/repo/releases/download/v1.0/package.msixbundle", PackageType.Msix)]
+    public void DeterminePackageType_PreventsExtensionSpoofing(string filename, string? url, PackageType expected)
+    {
+        var type = _resolver.DeterminePackageType(filename, url);
+        Assert.Equal(expected, type);
+    }
+
+    [Theory]
     [InlineData(PackageType.Exe, true)]
     [InlineData(PackageType.Msi, true)]
     [InlineData(PackageType.Msix, true)]

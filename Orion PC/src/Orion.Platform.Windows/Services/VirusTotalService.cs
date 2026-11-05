@@ -43,19 +43,25 @@ public class VirusTotalService : IVirusTotalService
         string? apiKey = null,
         CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(sha256Hash) || !System.Text.RegularExpressions.Regex.IsMatch(sha256Hash.Trim(), "^[a-fA-F0-9]{64}$"))
+        {
+            throw new ArgumentException("SHA-256 hash must be exactly 64 hexadecimal characters.", nameof(sha256Hash));
+        }
+        var cleanHash = sha256Hash.Trim().ToLowerInvariant();
+
         var key = apiKey ?? _secureStorage.GetSecret("VirusTotalApiKey");
         if (string.IsNullOrWhiteSpace(key))
         {
             return null;
         }
 
-        var request = new HttpRequestMessage(HttpMethod.Get, $"https://www.virustotal.com/api/v3/files/{sha256Hash}");
+        var request = new HttpRequestMessage(HttpMethod.Get, $"https://www.virustotal.com/api/v3/files/{cleanHash}");
         request.Headers.Add("x-apikey", key.Trim());
 
         using var response = await _httpClient.SendAsync(request, cancellationToken);
         if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
-            return new VtScanResult(sha256Hash, new VtScanStats(0, 0, 0, 0, 0), $"https://www.virustotal.com/gui/file/{sha256Hash}", false);
+            return new VtScanResult(cleanHash, new VtScanStats(0, 0, 0, 0, 0), $"https://www.virustotal.com/gui/file/{cleanHash}", false);
         }
 
         if (!response.IsSuccessStatusCode)
@@ -85,9 +91,9 @@ public class VirusTotalService : IVirusTotalService
         }
 
         return new VtScanResult(
-            sha256Hash,
+            cleanHash,
             stats,
-            $"https://www.virustotal.com/gui/file/{sha256Hash}",
+            $"https://www.virustotal.com/gui/file/{cleanHash}",
             true
         );
     }

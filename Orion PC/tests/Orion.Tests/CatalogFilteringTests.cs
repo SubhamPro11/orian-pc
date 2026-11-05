@@ -50,6 +50,21 @@ public class CatalogFilteringTests
         Assert.Equal(8, allApps.Count);
     }
 
+    [Theory]
+    [InlineData("javascript:alert(1)", "#")]
+    [InlineData("file:///C:/Windows/System32/calc.exe", "#")]
+    [InlineData("data:text/html,<script>alert(1)</script>", "#")]
+    [InlineData("ms-msdt:/id DEV.123", "#")]
+    [InlineData("https://github.com/app/releases", "https://github.com/app/releases")]
+    [InlineData("http://example.com/app.exe", "http://example.com/app.exe")]
+    [InlineData("#", "#")]
+    [InlineData("", "#")]
+    public void SanitizeUrl_OnlyPermitsHttpAndHttps(string input, string expected)
+    {
+        var sanitized = CatalogProcessor.SanitizeUrl(input);
+        Assert.Equal(expected, sanitized);
+    }
+
     [Fact]
     public void SanitizeApp_SanitizesJavascriptUrlsAndCoercesFields()
     {

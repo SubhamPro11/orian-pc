@@ -35,8 +35,14 @@ public class CatalogProcessor : ICatalogProcessor
     {
         if (string.IsNullOrWhiteSpace(u)) return "#";
         var t = u.Trim();
-        if (t.StartsWith("javascript:", StringComparison.OrdinalIgnoreCase)) return "#";
-        return t;
+        if (t.Equals("#", StringComparison.Ordinal)) return "#";
+        if (Uri.TryCreate(t, UriKind.Absolute, out var uri) &&
+            (uri.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) ||
+             uri.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)))
+        {
+            return uri.AbsoluteUri;
+        }
+        return "#";
     }
 
     public AppItem? SanitizeApp(JsonElement raw)
@@ -166,7 +172,7 @@ public class CatalogProcessor : ICatalogProcessor
             {
                 var arch = _assetResolver.DetermineArchitecture(a.Name).ToString();
                 var pkgType = _assetResolver.DeterminePackageType(a.Name, a.DownloadUrl);
-                return new AppVariant(arch, a.DownloadUrl, a.Size, pkgType);
+                return new AppVariant(arch, a.DownloadUrl, a.Size, pkgType, a.Sha256);
             })
             .OrderByDescending(v => _assetResolver.IsWindowsPackage(v.PackageType))
             .ThenBy(v => v.Arch switch
@@ -287,10 +293,14 @@ public class CatalogProcessor : ICatalogProcessor
                 string aUrl = a.TryGetProperty("browser_download_url", out var au) ? au.GetString() ?? "" : "";
                 long? aSize = a.TryGetProperty("size", out var asz) ? asz.GetInt64() : null;
                 string? aType = a.TryGetProperty("content_type", out var at) ? at.GetString() : null;
+                string? aSha256 = null;
+                if (a.TryGetProperty("sha256", out var ash)) aSha256 = ash.GetString();
+                else if (a.TryGetProperty("digest", out var adg)) aSha256 = adg.GetString();
+                else if (a.TryGetProperty("hash", out var ah)) aSha256 = ah.GetString();
 
                 if (!string.IsNullOrEmpty(aName) && !string.IsNullOrEmpty(aUrl))
                 {
-                    assets.Add(new ReleaseAssetInfo(aName, aUrl, aSize, aType));
+                    assets.Add(new ReleaseAssetInfo(aName, aUrl, aSize, aType, aSha256));
                 }
             }
         }

@@ -40,7 +40,7 @@ public class DownloadManagerAndSecurityTests
         var ex = Assert.Throws<InvalidOperationException>(() =>
             _downloadManager.Enqueue(app, variant));
 
-        Assert.Contains("Refused non-Windows asset", ex.Message);
+        Assert.Contains("Refused non-Windows", ex.Message);
     }
 
     [Fact]
@@ -95,5 +95,36 @@ public class DownloadManagerAndSecurityTests
         {
             _secureStorage.RemoveSecret(key);
         }
+    }
+
+    [Theory]
+    [InlineData("not_a_hash")]
+    [InlineData("12345")]
+    [InlineData("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855../")]
+    [InlineData("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85z")] // 'z' is not hex
+    public async Task VirusTotalService_RejectsInvalidSha256Hashes(string invalidHash)
+    {
+        var vtService = new VirusTotalService(new HttpClient(), _secureStorage);
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            vtService.GetFileReportAsync(invalidHash, "mock_api_key"));
+    }
+
+    [Fact]
+    public void IsKnownTrustedHost_ValidatesEcosystemAndOfficialHosts()
+    {
+        var app = new AppItem(
+            Id: "trusted-app",
+            Name: "Trusted App",
+            OfficialSite: "https://trusted-site.org/home",
+            RepoUrl: "https://codeberg.org/author/project"
+        );
+
+        Assert.True(DownloadManager.IsKnownTrustedHost("https://github.com/releases/app.exe", app));
+        Assert.True(DownloadManager.IsKnownTrustedHost("https://objects.githubusercontent.com/123/app.exe", app));
+        Assert.True(DownloadManager.IsKnownTrustedHost("https://gitlab.com/repo/app.msi", app));
+        Assert.True(DownloadManager.IsKnownTrustedHost("https://codeberg.org/author/project/releases/app.zip", app));
+        Assert.True(DownloadManager.IsKnownTrustedHost("https://trusted-site.org/downloads/setup.exe", app));
+
+        Assert.False(DownloadManager.IsKnownTrustedHost("https://random-malicious-site.xyz/app.exe", app));
     }
 }

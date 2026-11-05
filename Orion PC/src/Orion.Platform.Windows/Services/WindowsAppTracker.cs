@@ -13,12 +13,15 @@ public record InstalledAppInfo(
     string? UninstallString,
     string? QuietUninstallString,
     string Source, // "Registry-HKLM", "Registry-HKCU", "MSIX", "Portable"
-    string? PackageFamilyName = null
+    string? PackageFamilyName = null,
+    string? PackageFullName = null,
+    string? AppId = null
 );
 
 public interface IInstalledAppDetector
 {
     IReadOnlyList<InstalledAppInfo> GetInstalledApps(bool forceRefresh = false);
+    Task<IReadOnlyList<InstalledAppInfo>> GetInstalledAppsAsync(bool forceRefresh = false);
     InstalledAppInfo? FindInstalledApp(AppItem app);
     bool IsAppInstalled(AppItem app);
     string? GetInstalledVersion(AppItem app);
@@ -51,27 +54,36 @@ public class WindowsAppTracker : IInstalledAppDetector
                 return _cachedApps;
             }
 
-            var apps = new List<InstalledAppInfo>();
-
-            // 1. Scan Registry (HKLM & HKCU, 64-bit and WOW6432Node)
-            ScanRegistryKey(Registry.LocalMachine, @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall", "Registry-HKLM", apps);
-            ScanRegistryKey(Registry.CurrentUser, @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall", "Registry-HKCU", apps);
-            ScanRegistryKey(Registry.LocalMachine, @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall", "Registry-HKLM-32", apps);
-            ScanRegistryKey(Registry.CurrentUser, @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall", "Registry-HKCU-32", apps);
-
-            // 2. Scan MSIX packages via WinRT
-            ScanMsixPackages(apps);
-
-            // 3. Scan Orion's tracked portable installations
-            ScanPortableApps(apps);
-
-            _cachedApps = apps
-                .GroupBy(a => a.DisplayName, StringComparer.OrdinalIgnoreCase)
-                .Select(g => g.First())
-                .ToList();
-
+            _cachedApps = PerformScan();
             return _cachedApps;
         }
+    }
+
+    public Task<IReadOnlyList<InstalledAppInfo>> GetInstalledAppsAsync(bool forceRefresh = false)
+    {
+        return Task.Run(() => GetInstalledApps(forceRefresh));
+    }
+
+    private List<InstalledAppInfo> PerformScan()
+    {
+        var apps = new List<InstalledAppInfo>();
+
+        // 1. Scan Registry (HKLM & HKCU, 64-bit and WOW6432Node)
+        ScanRegistryKey(Registry.LocalMachine, @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall", "Registry-HKLM", apps);
+        ScanRegistryKey(Registry.CurrentUser, @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall", "Registry-HKCU", apps);
+        ScanRegistryKey(Registry.LocalMachine, @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall", "Registry-HKLM-32", apps);
+        ScanRegistryKey(Registry.CurrentUser, @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall", "Registry-HKCU-32", apps);
+
+        // 2. Scan MSIX packages for current user via WinRT
+        ScanMsixPackages(apps);
+
+        // 3. Scan Orion's tracked portable installations
+        ScanPortableApps(apps);
+
+        return apps
+            .GroupBy(a => a.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToList();
     }
 
     private static void ScanRegistryKey(RegistryKey rootKey, string subKeyPath, string source, List<InstalledAppInfo> results)
@@ -127,7 +139,8 @@ public class WindowsAppTracker : IInstalledAppDetector
         try
         {
             var pm = new global::Windows.Management.Deployment.PackageManager();
-            var packages = pm.FindPackages();
+            // Use FindPackagesForUser with string.Empty for current user to avoid requiring admin privileges
+            var packages = pm.FindPackagesForUser(string.Empty);
 
             foreach (var package in packages)
             {
@@ -152,7 +165,8 @@ public class WindowsAppTracker : IInstalledAppDetector
                         null,
                         null,
                         "MSIX",
-                        package.Id.FamilyName
+                        PackageFamilyName: package.Id.FamilyName,
+                        PackageFullName: package.Id.FullName
                     ));
                 }
                 catch
@@ -163,7 +177,7 @@ public class WindowsAppTracker : IInstalledAppDetector
         }
         catch
         {
-            // WinRT PackageManager may be unavailable or restricted in some contexts
+            // WinRT PackageManager may be unavailable or restricted in some test environments
         }
     }
 
@@ -188,7 +202,8 @@ public class WindowsAppTracker : IInstalledAppDetector
                         entry.InstallPath,
                         entry.ExePath,
                         null,
-                        "Portable"
+                        "Portable",
+                        AppId: id
                     ));
                 }
             }
@@ -201,22 +216,46 @@ public class WindowsAppTracker : IInstalledAppDetector
 
     public InstalledAppInfo? FindInstalledApp(AppItem app)
     {
-        var installed = GetInstalledApps();
-        var targetName = app.Name.Trim().ToLowerInvariant();
-        var targetId = app.Id.Trim().ToLowerInvariant();
+        if (app == null) return null;
 
-        // Exact name match
-        var match = installed.FirstOrDefault(i => i.DisplayName.Trim().Equals(targetName, StringComparison.OrdinalIgnoreCase));
-        if (match != null) return match;
+        var targetName = (app.Name ?? string.Empty).Trim();
+        var targetId = (app.Id ?? string.Empty).Trim();
 
-        // Substring / identifier match
-        match = installed.FirstOrDefault(i =>
+        if (string.IsNullOrWhiteSpace(targetName) && string.IsNullOrWhiteSpace(targetId))
         {
-            var dn = i.DisplayName.ToLowerInvariant();
-            return dn.Contains(targetName) || dn.Contains(targetId);
-        });
+            return null;
+        }
 
-        return match;
+        var installed = GetInstalledApps();
+
+        // 1. Exact name match
+        if (!string.IsNullOrEmpty(targetName))
+        {
+            var match = installed.FirstOrDefault(i => i.DisplayName.Equals(targetName, StringComparison.OrdinalIgnoreCase));
+            if (match != null) return match;
+        }
+
+        // 2. Portable AppId match
+        if (!string.IsNullOrEmpty(targetId))
+        {
+            var match = installed.FirstOrDefault(i => i.AppId != null && i.AppId.Equals(targetId, StringComparison.OrdinalIgnoreCase));
+            if (match != null) return match;
+        }
+
+        // 3. Substring match with minimum length threshold to prevent false matches
+        if (targetName.Length >= 4)
+        {
+            var match = installed.FirstOrDefault(i => i.DisplayName.Contains(targetName, StringComparison.OrdinalIgnoreCase));
+            if (match != null) return match;
+        }
+
+        if (targetId.Length >= 4)
+        {
+            var match = installed.FirstOrDefault(i => i.DisplayName.Contains(targetId, StringComparison.OrdinalIgnoreCase));
+            if (match != null) return match;
+        }
+
+        return null;
     }
 
     public bool IsAppInstalled(AppItem app) => FindInstalledApp(app) != null;
@@ -227,45 +266,69 @@ public class WindowsAppTracker : IInstalledAppDetector
         return match?.DisplayVersion;
     }
 
+    private static readonly object ProcessLock = new();
+
     public void RegisterPortableApp(string appId, string appName, string version, string installPath, string exePath)
     {
-        lock (_lock)
+        for (int retry = 0; retry < 5; retry++)
         {
-            Dictionary<string, PortableAppRecord> entries;
             try
             {
-                entries = File.Exists(_portableDbPath)
-                    ? JsonSerializer.Deserialize<Dictionary<string, PortableAppRecord>>(File.ReadAllText(_portableDbPath)) ?? new()
-                    : new();
-            }
-            catch
-            {
-                entries = new();
-            }
+                lock (ProcessLock)
+                {
+                    Dictionary<string, PortableAppRecord> entries;
+                    try
+                    {
+                        entries = File.Exists(_portableDbPath)
+                            ? JsonSerializer.Deserialize<Dictionary<string, PortableAppRecord>>(File.ReadAllText(_portableDbPath)) ?? new()
+                            : new();
+                    }
+                    catch
+                    {
+                        entries = new();
+                    }
 
-            entries[appId] = new PortableAppRecord(appId, appName, version, installPath, exePath, DateTime.UtcNow);
-            File.WriteAllText(_portableDbPath, JsonSerializer.Serialize(entries, new JsonSerializerOptions { WriteIndented = true }));
-            _cachedApps = null; // Invalidate cache
+                    entries[appId] = new PortableAppRecord(appId, appName, version, installPath, exePath, DateTime.UtcNow);
+                    File.WriteAllText(_portableDbPath, JsonSerializer.Serialize(entries, new JsonSerializerOptions { WriteIndented = true }));
+                    _cachedApps = null; // Invalidate cache
+                    return;
+                }
+            }
+            catch (IOException) when (retry < 4)
+            {
+                Thread.Sleep(50 * (retry + 1));
+            }
         }
     }
 
     public void UnregisterPortableApp(string appId)
     {
-        lock (_lock)
+        for (int retry = 0; retry < 5; retry++)
         {
-            if (!File.Exists(_portableDbPath)) return;
             try
             {
-                var entries = JsonSerializer.Deserialize<Dictionary<string, PortableAppRecord>>(File.ReadAllText(_portableDbPath)) ?? new();
-                if (entries.Remove(appId))
+                lock (ProcessLock)
                 {
-                    File.WriteAllText(_portableDbPath, JsonSerializer.Serialize(entries, new JsonSerializerOptions { WriteIndented = true }));
-                    _cachedApps = null;
+                    if (!File.Exists(_portableDbPath)) return;
+                    try
+                    {
+                        var entries = JsonSerializer.Deserialize<Dictionary<string, PortableAppRecord>>(File.ReadAllText(_portableDbPath)) ?? new();
+                        if (entries.Remove(appId))
+                        {
+                            File.WriteAllText(_portableDbPath, JsonSerializer.Serialize(entries, new JsonSerializerOptions { WriteIndented = true }));
+                            _cachedApps = null;
+                        }
+                        return;
+                    }
+                    catch
+                    {
+                        return;
+                    }
                 }
             }
-            catch
+            catch (IOException) when (retry < 4)
             {
-                // Ignore
+                Thread.Sleep(50 * (retry + 1));
             }
         }
     }

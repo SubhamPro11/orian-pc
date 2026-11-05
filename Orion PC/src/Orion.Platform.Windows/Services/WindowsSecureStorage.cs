@@ -1,4 +1,6 @@
+using System.Security.AccessControl;
 using System.Security.Cryptography;
+using System.Security.Principal;
 using System.Text;
 
 namespace Orion.Platform.Windows.Services;
@@ -20,6 +22,7 @@ public class WindowsSecureStorage : ISecureStorageService
         var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         _fallbackDir = Path.Combine(localAppData, "OrionStore", "Secrets");
         Directory.CreateDirectory(_fallbackDir);
+        RestrictAclToCurrentUser(_fallbackDir, isDirectory: true);
     }
 
     public void SetSecret(string key, string secret)
@@ -52,6 +55,7 @@ public class WindowsSecureStorage : ISecureStorageService
         var encrypted = ProtectedData.Protect(secretBytes, null, DataProtectionScope.CurrentUser);
         var path = Path.Combine(_fallbackDir, $"{key}.dat");
         File.WriteAllBytes(path, encrypted);
+        RestrictAclToCurrentUser(path, isDirectory: false);
     }
 
     public string? GetSecret(string key)
@@ -101,6 +105,44 @@ public class WindowsSecureStorage : ISecureStorageService
         if (File.Exists(path))
         {
             try { File.Delete(path); } catch { /* Ignore */ }
+        }
+    }
+
+    private static void RestrictAclToCurrentUser(string path, bool isDirectory)
+    {
+        try
+        {
+            var currentUser = WindowsIdentity.GetCurrent().User;
+            if (currentUser == null) return;
+
+            if (isDirectory)
+            {
+                var dirInfo = new DirectoryInfo(path);
+                var dirSecurity = new DirectorySecurity();
+                dirSecurity.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+                dirSecurity.AddAccessRule(new FileSystemAccessRule(
+                    currentUser,
+                    FileSystemRights.FullControl,
+                    InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
+                    PropagationFlags.None,
+                    AccessControlType.Allow));
+                dirInfo.SetAccessControl(dirSecurity);
+            }
+            else
+            {
+                var fileInfo = new FileInfo(path);
+                var fileSecurity = new FileSecurity();
+                fileSecurity.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+                fileSecurity.AddAccessRule(new FileSystemAccessRule(
+                    currentUser,
+                    FileSystemRights.FullControl,
+                    AccessControlType.Allow));
+                fileInfo.SetAccessControl(fileSecurity);
+            }
+        }
+        catch
+        {
+            // Fallback for non-NTFS volumes or virtualization environments
         }
     }
 }

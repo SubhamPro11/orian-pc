@@ -41,51 +41,78 @@ public class AssetResolver : IAssetResolver
 
     public PackageType DeterminePackageType(string name, string? url = null)
     {
-        var combined = $"{name} {url}".ToLowerInvariant();
+        // Extract filename from URL AbsolutePath if valid, else from name
+        string candidate = "";
+        if (!string.IsNullOrWhiteSpace(url) && Uri.TryCreate(url.Trim(), UriKind.Absolute, out var uri))
+        {
+            candidate = Path.GetFileName(uri.AbsolutePath);
+        }
 
-        if (combined.Contains(".msixbundle") || combined.Contains(".msix") || combined.Contains(".appxbundle") || combined.Contains(".appx"))
+        if (string.IsNullOrWhiteSpace(candidate))
+        {
+            candidate = Path.GetFileName(name ?? string.Empty);
+        }
+
+        var lower = candidate.ToLowerInvariant();
+
+        if (lower.EndsWith(".msixbundle") || lower.EndsWith(".msix") || lower.EndsWith(".appxbundle") || lower.EndsWith(".appx"))
         {
             return PackageType.Msix;
         }
 
-        if (combined.Contains(".msi"))
+        if (lower.EndsWith(".msi"))
         {
             return PackageType.Msi;
         }
 
-        if (combined.Contains(".exe"))
+        if (lower.EndsWith(".exe"))
         {
             return PackageType.Exe;
         }
 
-        if (combined.Contains(".zip") || combined.Contains(".7z"))
+        if (lower.EndsWith(".zip") || lower.EndsWith(".7z"))
         {
             return PackageType.ZipPortable;
         }
 
-        if (combined.Contains(".apk") || combined.Contains(".xapk") || combined.Contains(".apks"))
+        if (lower.EndsWith(".apk") || lower.EndsWith(".xapk") || lower.EndsWith(".apks"))
         {
             return PackageType.Apk;
         }
 
-        if (combined.Contains(".dmg") || combined.Contains(".pkg"))
+        if (lower.EndsWith(".dmg") || lower.EndsWith(".pkg"))
         {
             return PackageType.Dmg;
         }
 
-        if (combined.Contains(".appimage"))
+        if (lower.EndsWith(".appimage"))
         {
             return PackageType.AppImage;
         }
 
-        if (combined.Contains(".deb"))
+        if (lower.EndsWith(".deb"))
         {
             return PackageType.Deb;
         }
 
-        if (combined.Contains(".rpm"))
+        if (lower.EndsWith(".rpm"))
         {
             return PackageType.Rpm;
+        }
+
+        // If URL path didn't have an extension, try name's extension
+        if (!string.IsNullOrWhiteSpace(name))
+        {
+            var nameFile = Path.GetFileName(name).ToLowerInvariant();
+            if (nameFile.EndsWith(".msixbundle") || nameFile.EndsWith(".msix") || nameFile.EndsWith(".appxbundle") || nameFile.EndsWith(".appx")) return PackageType.Msix;
+            if (nameFile.EndsWith(".msi")) return PackageType.Msi;
+            if (nameFile.EndsWith(".exe")) return PackageType.Exe;
+            if (nameFile.EndsWith(".zip") || nameFile.EndsWith(".7z")) return PackageType.ZipPortable;
+            if (nameFile.EndsWith(".apk") || nameFile.EndsWith(".xapk") || nameFile.EndsWith(".apks")) return PackageType.Apk;
+            if (nameFile.EndsWith(".dmg") || nameFile.EndsWith(".pkg")) return PackageType.Dmg;
+            if (nameFile.EndsWith(".appimage")) return PackageType.AppImage;
+            if (nameFile.EndsWith(".deb")) return PackageType.Deb;
+            if (nameFile.EndsWith(".rpm")) return PackageType.Rpm;
         }
 
         return PackageType.Unknown;

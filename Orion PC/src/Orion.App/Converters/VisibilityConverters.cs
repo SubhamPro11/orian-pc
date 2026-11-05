@@ -22,11 +22,22 @@ public class BoolToVisibilityConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, string language)
     {
-        bool b = value is bool flag && flag;
+        bool b = value switch
+        {
+            bool flag => flag,
+            int count => count > 0,
+            long lCount => lCount > 0,
+            double dCount => dCount > 0,
+            string s => !string.IsNullOrWhiteSpace(s),
+            System.Collections.ICollection col => col.Count > 0,
+            _ => value != null
+        };
+
         if (parameter is string p && p.Equals("Inverse", StringComparison.OrdinalIgnoreCase))
         {
             b = !b;
         }
+
         return b ? Visibility.Visible : Visibility.Collapsed;
     }
 
@@ -35,4 +46,3 @@ public class BoolToVisibilityConverter : IValueConverter
         throw new NotImplementedException();
     }
 }
-
