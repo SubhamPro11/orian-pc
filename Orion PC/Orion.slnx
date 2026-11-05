@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Orion.App/Orion.App.csproj">
+      <Platform Project="x86" />
+    </Project>
+    <Project Path="src/Orion.Core/Orion.Core.csproj" />
+    <Project Path="src/Orion.Platform.Windows/Orion.Platform.Windows.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Orion.Tests/Orion.Tests.csproj" />
+  </Folder>
+</Solution>

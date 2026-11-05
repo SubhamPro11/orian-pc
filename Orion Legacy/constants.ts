@@ -1,0 +1,125 @@
+
+import { AppCategory, AppFontKey, AppItem, Platform, FAQItem, DevProfile, DonationConfig } from './types';
+
+// System Constants
+export const CACHE_VERSION = 'v1_6'; // Increment this to force-clear client cache in future updates
+export const NETWORK_TIMEOUT_MS = 8000;
+
+// --- REMOTE DATA ENDPOINTS ---
+export const RELEASE_NOTES_URL = 'https://raw.githubusercontent.com/RookieEnough/Orion-Data/main/release_notes.json';
+
+// --- IMAGE PROXY CONFIGURATION ---
+// To use your own Cloudflare Worker:
+// 1. Deploy the code from `workers/cf_image_proxy.js`
+// 2. Change provider to 'custom'
+// 3. Set workerUrl to your deployed URL
+export const IMAGE_PROXY_CONFIG = {
+    provider: 'wsrv', // Options: 'wsrv' | 'custom'
+    workerUrl: 'https://image-proxy.yourname.workers.dev', // Only used if provider is 'custom'
+    quality: 95
+};
+
+// Gradients for fallback icons based on category
+export const CATEGORY_GRADIENTS: Record<string, string> = {
+  [AppCategory.UTILITY]: 'bg-gradient-to-br from-blue-500 to-cyan-400',
+  [AppCategory.PRIVACY]: 'bg-gradient-to-br from-emerald-500 to-teal-400',
+  [AppCategory.MEDIA]: 'bg-gradient-to-br from-fuchsia-500 to-pink-400',
+  [AppCategory.DEVELOPMENT]: 'bg-gradient-to-br from-orange-500 to-amber-400',
+  [AppCategory.SOCIAL]: 'bg-gradient-to-br from-indigo-500 to-violet-400',
+  'Default': 'bg-gradient-to-br from-gray-500 to-slate-400'
+};
+
+// MicroG Configuration
+export const MICROG_DEPENDENT_APPS = ['youtube-revanced', 'yt-music-revanced', 'google-photos-revanced'];
+export const MICROG_INFO_URL = 'https://github.com/microg/GmsCore/wiki';
+
+export const DEV_SOCIALS = {
+  github: 'https://github.com/RookieEnough',
+  x: 'https://x.com/_Rookie_Z',
+  discord: 'https://discord.com/invite/CrM6y4ujnq',
+  coffee: 'https://www.buymeacoffee.com/rookiez'
+};
+
+export const DEFAULT_DONATION: DonationConfig = {
+  kofiUrl: 'https://ko-fi.com/rookie_z',
+  upiId: 'rookiez@ptyes',
+  paypalUrl: 'paypal.me/RookieEnough'
+};
+
+export const DEFAULT_DEV_PROFILE: DevProfile = {
+  name: "RookieZ",
+  bio: "Building the open web, one commit at a time. No ads, no tracking, just code.",
+  image: "https://i.pinimg.com/originals/12/79/48/127948a3253396796874286570740594.jpg"
+};
+
+export const DEFAULT_SUPPORT_EMAIL = 'orionstoredev@gmail.com';
+export const DEFAULT_EASTER_EGG = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+
+export const DEFAULT_APP_FONT: AppFontKey = 'spaceGrotesk';
+export const CUSTOM_FONT_FAMILY = "'Orion Custom Font', sans-serif";
+
+export const APP_FONT_OPTIONS: ReadonlyArray<{
+  key: AppFontKey;
+  label: string;
+  family: string;
+}> = [
+  { key: 'spaceGrotesk', label: 'Space Grotesk', family: "'Space Grotesk', sans-serif" },
+  { key: 'inter', label: 'Inter', family: "'Inter', sans-serif" },
+  { key: 'poppins', label: 'Poppins', family: "'Poppins', sans-serif" },
+  { key: 'manrope', label: 'Manrope', family: "'Manrope', sans-serif" },
+  { key: 'outfit', label: 'Outfit', family: "'Outfit', sans-serif" },
+  { key: 'dmSans', label: 'DM Sans', family: "'DM Sans', sans-serif" },
+  { key: 'plusJakartaSans', label: 'Plus Jakarta Sans', family: "'Plus Jakarta Sans', sans-serif" },
+  { key: 'rubik', label: 'Rubik', family: "'Rubik', sans-serif" },
+  { key: 'nunitoSans', label: 'Nunito Sans', family: "'Nunito Sans', sans-serif" },
+  { key: 'publicSans', label: 'Public Sans', family: "'Public Sans', sans-serif" },
+  { key: 'systemDefault', label: 'System Default', family: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" }
+];
+
+export const getAppFontDefinition = (fontKey: AppFontKey): (typeof APP_FONT_OPTIONS)[number] =>
+  APP_FONT_OPTIONS.find((option) => option.key === fontKey) || APP_FONT_OPTIONS[0]!;
+
+export const getCustomFontKey = (fontId: string): AppFontKey => `custom:${fontId}`;
+
+export const DEFAULT_FAQS: FAQItem[] = [
+  {
+    question: "Is Orion Store safe?",
+    answer: "Absolutely. Orion Store is completely open-source. This means our code is public on GitHub for anyone to audit. We believe in transparency—no hidden trackers, no data mining, just a clean gateway to apps.",
+    icon: "fa-shield-cat"
+  },
+  {
+    question: "Are apps on Orion safe?",
+    answer: "Yes. I personally review and mod them using tools available on their official repositories to ensure they are safe, functional, and privacy-respecting before they land here.",
+    icon: "fa-check-double"
+  },
+  {
+    question: "Are ReVanced builds safe?",
+    answer: "Yes. These builds are automated via GitHub Actions bots, not manually patched. They use the official ReVanced CLI and patches on APKs sourced from APKMirror, Uptodown, and APKPure. The process runs daily at 6 AM. The entire build pipeline is transparent and open-source: https://github.com/RookieEnough/Revanced-AutoBuilds",
+    icon: "fa-robot"
+  },
+  {
+    question: "Installation failed?",
+    answer: "If you see 'App not installed' or 'Package conflicts', it's likely a signature mismatch. You cannot install a modded app over the original Play Store version or a different mod. Uninstall the existing app first, then install the one from Orion.",
+    icon: "fa-file-signature"
+  },
+  {
+    question: "Download not working?",
+    answer: "Don't panic! Just head to the app's detail page and click the 'Report' icon (⚠️) in the top right corner. It will pre-fill an email so I can fix it ASAP.",
+    icon: "fa-bug"
+  },
+  {
+    question: "Will there be more apps?",
+    answer: "Yes, if there'll be more interesting apps to add on. As long as I find open-source or useful tools that deserve a spotlight, the library will keep growing.",
+    icon: "fa-layer-group"
+  },
+  {
+    question: "How can I support?",
+    answer: "By donation through ko-fi. Code fuels the store, but coffee fuels the dev! You can find the link in the socials section.",
+    icon: "fa-heart"
+  },
+  {
+    question: "Is there any hidden easter egg?",
+    answer: "Where the Architect stares, the secret sleeps.\n\nCount the legs of a spider. Count the vertices of a cube.\n\nStrike the Visage that many times.\n\nThe Golden Truth awaits those who know the rules... and so do I.",
+    icon: "fa-user-secret"
+  }
+];
