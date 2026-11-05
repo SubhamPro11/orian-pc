@@ -28,20 +28,14 @@ jobs:
       - name: Restore NuGet Packages
         run: dotnet restore "Orion PC/Orion.slnx"
 
-      - name: Build Solution (Debug x64)
-        run: dotnet build "Orion PC/Orion.slnx" -c Debug -r win-x64 --no-restore
-
-      - name: Build Solution (Debug ARM64)
-        run: dotnet build "Orion PC/Orion.slnx" -c Debug -r win-arm64 --no-restore
+      - name: Build Solution (Debug)
+        run: dotnet build "Orion PC/Orion.slnx" -c Debug --no-restore
 
       - name: Run Unit Tests
         run: dotnet test "Orion PC/tests/Orion.Tests/Orion.Tests.csproj" -c Debug --no-build --verbosity normal
 
-      - name: Build Solution (Release x64)
-        run: dotnet build "Orion PC/Orion.slnx" -c Release -r win-x64 --no-restore
-
-      - name: Build Solution (Release ARM64)
-        run: dotnet build "Orion PC/Orion.slnx" -c Release -r win-arm64 --no-restore
+      - name: Build Solution (Release)
+        run: dotnet build "Orion PC/Orion.slnx" -c Release --no-restore
 
       - name: Publish x64 (Unpackaged Standalone)
         run: >
@@ -76,4 +70,3 @@ jobs:
         with:
           name: OrionStore-PC-win-arm64
           path: ./publish/win-arm64/
-
