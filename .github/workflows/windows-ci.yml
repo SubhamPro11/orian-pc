@@ -66,13 +66,13 @@ jobs:
           -o ./publish/win-arm64
 
       - name: Upload x64 Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: OrionStore-PC-win-x64
           path: ./publish/win-x64/
 
       - name: Upload ARM64 Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: OrionStore-PC-win-arm64
           path: ./publish/win-arm64/
