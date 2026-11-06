@@ -63,6 +63,11 @@ public partial class App : Application
         services.AddSingleton<IVirusTotalService, VirusTotalService>();
 
         // App Services
+        services.AddSingleton<IGitHubAuthService>(sp => new GitHubAuthService(
+            sp.GetRequiredService<HttpClient>(),
+            sp.GetRequiredService<ISecureStorageService>(),
+            msg => sp.GetRequiredService<IAppLogger>().LogInfo(msg),
+            (msg, ex) => sp.GetRequiredService<IAppLogger>().LogError(msg, ex)));
         services.AddSingleton<ICatalogDataService, CatalogDataService>();
 
         // ViewModels (Singletons prevent transient IDisposable leak in root container and preserve page state)
@@ -81,6 +86,7 @@ public partial class App : Application
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
         _logger.LogInfo("Application launching MainWindow.");
+        _ = Services.GetRequiredService<IGitHubAuthService>().InitializeAsync();
         _window = new MainWindow();
         _window.Activate();
     }

@@ -33,6 +33,39 @@ public sealed partial class MainWindow : Window
 
         // Initialize MainViewModel data loading
         _ = _mainViewModel.InitializeAsync();
+
+        _mainViewModel.PropertyChanged += (s, e) =>
+        {
+            if (e.PropertyName == nameof(MainViewModel.IsGitHubAuthenticated) ||
+                e.PropertyName == nameof(MainViewModel.CurrentGitHubUser))
+            {
+                UpdateGitHubUserState();
+            }
+        };
+        UpdateGitHubUserState();
+    }
+
+    private void UpdateGitHubUserState()
+    {
+        if (DispatcherQueue != null && !DispatcherQueue.HasThreadAccess)
+        {
+            DispatcherQueue.TryEnqueue(UpdateGitHubUserState);
+            return;
+        }
+
+        var isAuth = _mainViewModel.IsGitHubAuthenticated;
+        GitHubSignInButton.Visibility = isAuth ? Visibility.Collapsed : Visibility.Visible;
+        GitHubProfileButton.Visibility = isAuth ? Visibility.Visible : Visibility.Collapsed;
+
+        if (isAuth)
+        {
+            GitHubLoginTextBlock.Text = _mainViewModel.GitHubUserLogin;
+            var avatar = _mainViewModel.GitHubUserAvatarUrl;
+            if (!string.IsNullOrWhiteSpace(avatar) && Uri.TryCreate(avatar, UriKind.Absolute, out var uri))
+            {
+                GitHubAvatarImage.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(uri);
+            }
+        }
     }
 
     private void ConfigureTitleBar()
@@ -136,5 +169,29 @@ public sealed partial class MainWindow : Window
         {
             _logger.LogError($"Error navigating to route: {route}", ex);
         }
+    }
+
+    private void OnGitHubSignInClicked(object sender, RoutedEventArgs e)
+    {
+        _ = _mainViewModel.LoginGitHubAsync();
+    }
+
+    private void OnGitHubSignOutClicked(object sender, RoutedEventArgs e)
+    {
+        _mainViewModel.LogoutGitHub();
+    }
+
+    private void OnOpenGitHubProfileClicked(object sender, RoutedEventArgs e)
+    {
+        var url = _mainViewModel.CurrentGitHubUser?.HtmlUrl;
+        if (!string.IsNullOrWhiteSpace(url) && Uri.TryCreate(url, UriKind.Absolute, out var uri))
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = uri.AbsoluteUri, UseShellExecute = true });
+        }
+    }
+
+    private void OnOpenSettingsClicked(object sender, RoutedEventArgs e)
+    {
+        RootNavView.SelectedItem = RootNavView.SettingsItem;
     }
 }

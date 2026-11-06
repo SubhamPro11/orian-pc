@@ -25,6 +25,69 @@
                 </StackPanel>
             </Border>
 
+            <!-- GitHub Account Section -->
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="16">
+                <StackPanel Spacing="16">
+                    <TextBlock Text="GitHub Account Integration" Style="{ThemeResource SubtitleTextBlockStyle}" FontSize="16" />
+
+                    <!-- Authenticated User Card -->
+                    <StackPanel Spacing="16" Visibility="{x:Bind ViewModel.IsGitHubAuthenticated, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Grid ColumnDefinitions="Auto,*">
+                            <Border Grid.Column="0" Width="56" Height="56" CornerRadius="28" Background="{ThemeResource LayerFillColorDefaultBrush}" Margin="0,0,16,0">
+                                <Image Source="{x:Bind ViewModel.GitHubUserAvatarUrl, Mode=OneWay}" Stretch="UniformToFill" />
+                            </Border>
+
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                                <TextBlock Text="{x:Bind ViewModel.GitHubUserDisplayName, Mode=OneWay}" FontWeight="SemiBold" FontSize="16" />
+                                <TextBlock Text="{x:Bind ViewModel.GitHubUserLogin, Mode=OneWay}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                <TextBlock Text="{x:Bind ViewModel.GitHubUserBio, Mode=OneWay}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" Visibility="{x:Bind ViewModel.GitHubUserBio, Mode=OneWay, Converter={StaticResource StringVisibilityConverter}}" />
+                            </StackPanel>
+                        </Grid>
+
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Border Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="4" Padding="8,4">
+                                <TextBlock Text="{x:Bind ViewModel.GitHubUserReposCount, Mode=OneWay}" FontSize="11" />
+                            </Border>
+                            <Border Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="4" Padding="8,4">
+                                <TextBlock Text="5,000 API requests/hr enabled" FontSize="11" Foreground="{ThemeResource SystemAccentColor}" FontWeight="SemiBold" />
+                            </Border>
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <Button Content="View GitHub Profile" Style="{ThemeResource DefaultButtonStyle}" Command="{x:Bind ViewModel.OpenGitHubProfileCommand}" />
+                            <Button Content="Sign Out" Style="{ThemeResource DefaultButtonStyle}" Command="{x:Bind ViewModel.LogoutGitHubCommand}" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!-- Not Authenticated State -->
+                    <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.IsGitHubAuthenticated, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Inverse}">
+                        <TextBlock Text="Connect your GitHub account to enable authenticated API access (5,000 requests/hour), download releases, and avoid rate limits." TextWrapping="Wrap" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+
+                        <StackPanel Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+                            <Button Style="{ThemeResource AccentButtonStyle}" Command="{x:Bind ViewModel.LoginGitHubBrowserCommand}" IsEnabled="{x:Bind ViewModel.IsGitHubBusy, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Inverse}">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <FontIcon Glyph="&#xE8A7;" />
+                                    <TextBlock Text="Sign in with GitHub" />
+                                </StackPanel>
+                            </Button>
+                            <ProgressRing IsActive="{x:Bind ViewModel.IsGitHubBusy, Mode=OneWay}" Width="20" Height="20" Visibility="{x:Bind ViewModel.IsGitHubBusy, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+                        </StackPanel>
+
+                        <!-- Optional: Token Alternative Expander -->
+                        <Expander Header="Alternative: Sign in with Personal Access Token" HorizontalAlignment="Stretch" Margin="0,8,0,0">
+                            <StackPanel Spacing="12" Padding="0,8">
+                                <TextBlock Text="If your browser cannot reach loopback, you can paste a GitHub Personal Access Token (PAT) with read:user scope:" Foreground="{ThemeResource TextFillColorSecondaryBrush}" FontSize="12" />
+                                <PasswordBox Password="{x:Bind ViewModel.ManualToken, Mode=TwoWay}" PlaceholderText="ghp_... or ghu_..." />
+                                <Button Content="Connect with Token" Style="{ThemeResource DefaultButtonStyle}" Command="{x:Bind ViewModel.LoginWithTokenCommand}" />
+                            </StackPanel>
+                        </Expander>
+                    </StackPanel>
+
+                    <!-- Auth Status Message -->
+                    <TextBlock Text="{x:Bind ViewModel.GitHubAuthMessage, Mode=OneWay}" Foreground="{ThemeResource SystemAccentColor}" FontWeight="SemiBold" Visibility="{x:Bind ViewModel.GitHubAuthMessage, Mode=OneWay, Converter={StaticResource StringVisibilityConverter}}" />
+                </StackPanel>
+            </Border>
+
             <!-- VirusTotal Security Section -->
             <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="16">
                 <StackPanel Spacing="16">

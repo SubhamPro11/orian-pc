@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Orion.Core.Models;
 using Orion.Core.Services;
+using Orion.Platform.Windows.Services;
 
 namespace Orion.App.Services;
 
@@ -24,6 +25,7 @@ public class CatalogDataService : ICatalogDataService
     private readonly HttpClient _httpClient;
     private readonly ICatalogProcessor _catalogProcessor;
     private readonly IAppLogger _logger;
+    private readonly IGitHubAuthService? _gitHubAuthService;
     private readonly string _cacheDirectory;
     private readonly string _catalogCachePath;
     private readonly string _trimmedMirrorCachePath;
@@ -38,11 +40,16 @@ public class CatalogDataService : ICatalogDataService
     public StoreConfig? CurrentConfig => _currentConfig;
     public IReadOnlyList<AppItem> AllApps => _allApps;
 
-    public CatalogDataService(HttpClient httpClient, ICatalogProcessor catalogProcessor, IAppLogger logger)
+    public CatalogDataService(
+        HttpClient httpClient,
+        ICatalogProcessor catalogProcessor,
+        IAppLogger logger,
+        IGitHubAuthService? gitHubAuthService = null)
     {
         _httpClient = httpClient;
         _catalogProcessor = catalogProcessor;
         _logger = logger;
+        _gitHubAuthService = gitHubAuthService;
         var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         _cacheDirectory = Path.Combine(localAppData, "OrionStore", "Cache");
         _catalogCachePath = Path.Combine(_cacheDirectory, "cached_catalog.json");
@@ -211,6 +218,10 @@ public class CatalogDataService : ICatalogDataService
         {
             using var req = new HttpRequestMessage(HttpMethod.Get, url);
             req.Headers.UserAgent.ParseAdd("OrionStorePC/1.0");
+            if (_gitHubAuthService?.IsAuthenticated == true && !string.IsNullOrEmpty(_gitHubAuthService.AccessToken))
+            {
+                req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _gitHubAuthService.AccessToken);
+            }
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             cts.CancelAfter(TimeSpan.FromSeconds(8));
 
