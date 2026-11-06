@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Orion.App.Services;
 using Orion.Core.Models;
 using Orion.Core.Services;
 using Orion.Platform.Windows.Services;
@@ -17,6 +18,10 @@ public partial class AppDetailViewModel : ObservableObject
     private readonly IWindowsInstallerService _installerService;
     private readonly IVirusTotalService _virusTotalService;
     private readonly MainViewModel _mainViewModel;
+    private readonly ICatalogDataService _catalogDataService;
+    private readonly ICatalogProcessor _catalogProcessor;
+    private readonly IAppLogger _logger;
+    private readonly Microsoft.UI.Dispatching.DispatcherQueue? _dispatcherQueue;
 
     [ObservableProperty]
     private AppItem? _app;
@@ -69,7 +74,10 @@ public partial class AppDetailViewModel : ObservableObject
         IDownloadManager downloadManager,
         IWindowsInstallerService installerService,
         IVirusTotalService virusTotalService,
-        MainViewModel mainViewModel)
+        MainViewModel mainViewModel,
+        ICatalogDataService catalogDataService,
+        ICatalogProcessor catalogProcessor,
+        IAppLogger logger)
     {
         _assetResolver = assetResolver;
         _appTracker = appTracker;
@@ -77,6 +85,10 @@ public partial class AppDetailViewModel : ObservableObject
         _installerService = installerService;
         _virusTotalService = virusTotalService;
         _mainViewModel = mainViewModel;
+        _catalogDataService = catalogDataService;
+        _catalogProcessor = catalogProcessor;
+        _logger = logger;
+        _dispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
     }
 
     public void SetApp(AppItem app)
@@ -98,18 +110,11 @@ public partial class AppDetailViewModel : ObservableObject
             _ => CpuArchitecture.Universal
         };
 
-        AvailableVariants.Clear();
-        foreach (var v in app.VariantsList)
-        {
-            AvailableVariants.Add(v);
-        }
-
-        // Recommend matching variant
-        SelectedVariant = _assetResolver.SelectBestAsset(app.VariantsList, osArch);
+        UpdateVariants(app, osArch);
 
         if (IsWindowsApp)
         {
-            CanInstall = true;
+            CanInstall = SelectedVariant != null;
             NonWindowsNotice = string.Empty;
 
             if (IsInstalled)
@@ -120,10 +125,16 @@ public partial class AppDetailViewModel : ObservableObject
             else
             {
                 PrimaryActionText = "Download & Install";
-                StatusMessage = "Ready to download and install.";
+                StatusMessage = SelectedVariant != null ? "Ready to download and install." : "No download asset available.";
             }
 
             RecommendedArchBadge = $"Recommended for your machine ({osArch})";
+
+            // If this PC app has a GitHub repo and either has no variants or download url is #, fetch releases from GitHub API
+            if ((app.VariantsList.Count == 0 || app.DownloadUrl == "#" || app.DownloadUrl.StartsWith("http://#", StringComparison.OrdinalIgnoreCase) || string.IsNullOrEmpty(app.DownloadUrl)) && !string.IsNullOrWhiteSpace(app.GithubRepo))
+            {
+                _ = FetchLiveReleasesAsync(app, osArch);
+            }
         }
         else
         {
@@ -132,6 +143,72 @@ public partial class AppDetailViewModel : ObservableObject
             PrimaryActionText = "Not available on Windows";
             NonWindowsNotice = $"This application is created for {app.Platform}. Orion Store for PC only installs native Windows applications.";
             StatusMessage = "Download blocked: non-Windows app.";
+        }
+    }
+
+    private void UpdateVariants(AppItem app, CpuArchitecture osArch)
+    {
+        AvailableVariants.Clear();
+        foreach (var v in app.VariantsList)
+        {
+            AvailableVariants.Add(v);
+        }
+
+        // Recommend matching variant
+        SelectedVariant = _assetResolver.SelectBestAsset(app.VariantsList, osArch);
+    }
+
+    private async Task FetchLiveReleasesAsync(AppItem app, CpuArchitecture osArch)
+    {
+        try
+        {
+            StatusMessage = "Checking GitHub for latest Windows releases...";
+            var releases = await _catalogDataService.FetchGitHubReleasesAsync(app.GithubRepo!).ConfigureAwait(false);
+            if (releases != null && releases.Count > 0)
+            {
+                var updated = _catalogProcessor.ApplyReleases(app, releases);
+                RunOnUIThread(() =>
+                {
+                    App = updated;
+                    UpdateVariants(updated, osArch);
+                    if (SelectedVariant != null)
+                    {
+                        CanInstall = true;
+                        PrimaryActionText = IsInstalled ? "Installed" : "Download & Install";
+                        StatusMessage = $"Ready to install {updated.Version}";
+                    }
+                    else
+                    {
+                        StatusMessage = "No Windows installer package (.exe/.msi/.zip) found in GitHub releases.";
+                    }
+                });
+            }
+            else
+            {
+                RunOnUIThread(() =>
+                {
+                    if (SelectedVariant == null)
+                    {
+                        StatusMessage = "No downloadable release assets found on GitHub.";
+                    }
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning($"Error loading releases for {app.Name}: {ex.Message}");
+        }
+    }
+
+    private void RunOnUIThread(Action action)
+    {
+        if (_dispatcherQueue != null && !_dispatcherQueue.HasThreadAccess)
+        {
+            _dispatcherQueue.TryEnqueue(() => action());
+        }
+        else
+        {
+            action();
         }
     }
 

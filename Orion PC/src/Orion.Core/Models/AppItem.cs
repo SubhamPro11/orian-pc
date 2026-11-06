@@ -56,6 +56,10 @@ public record AppItem(
     public IReadOnlyList<string> ScreenshotsList => Screenshots ?? Array.Empty<string>();
     public IReadOnlyList<string> PatchesList => Patches ?? Array.Empty<string>();
 
-    public bool IsWindowsApp => PlatformConstants.NormalizePlatform(Platform, TagsList) == PlatformConstants.PC;
+    public string SafeIcon => !string.IsNullOrWhiteSpace(Icon) && Icon != "#"
+        ? Icon
+        : "ms-appx:///Assets/Square44x44Logo.scale-200.png";
+
+    public bool IsWindowsApp => PlatformConstants.MatchesCategory(Platform, TagsList, PlatformCategory.Windows);
 }
 

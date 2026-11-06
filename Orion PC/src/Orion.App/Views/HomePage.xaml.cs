@@ -36,7 +36,6 @@ public sealed partial class HomePage : Page
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
         base.OnNavigatedFrom(e);
-        ViewModel.Dispose();
     }
 
     private void OnAppItemClicked(object sender, ItemClickEventArgs e)

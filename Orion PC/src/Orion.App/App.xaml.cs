@@ -65,15 +65,15 @@ public partial class App : Application
         // App Services
         services.AddSingleton<ICatalogDataService, CatalogDataService>();
 
-        // ViewModels
+        // ViewModels (Singletons prevent transient IDisposable leak in root container and preserve page state)
         services.AddSingleton<MainViewModel>();
-        services.AddTransient<HomeViewModel>();
-        services.AddTransient<SearchViewModel>();
-        services.AddTransient<AppDetailViewModel>();
-        services.AddTransient<MyAppsViewModel>();
-        services.AddTransient<DownloadsViewModel>();
-        services.AddTransient<SettingsViewModel>();
-        services.AddTransient<AboutViewModel>();
+        services.AddSingleton<HomeViewModel>();
+        services.AddSingleton<SearchViewModel>();
+        services.AddSingleton<AppDetailViewModel>();
+        services.AddSingleton<MyAppsViewModel>();
+        services.AddSingleton<DownloadsViewModel>();
+        services.AddSingleton<SettingsViewModel>();
+        services.AddSingleton<AboutViewModel>();
 
         return services.BuildServiceProvider();
     }

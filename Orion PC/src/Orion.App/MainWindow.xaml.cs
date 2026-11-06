@@ -28,9 +28,8 @@ public sealed partial class MainWindow : Window
         ConfigureTitleBar();
         _mainViewModel.NavigationRequested += OnNavigationRequested;
 
-        // Default navigation to Home
+        // Default navigation to Home (selecting item triggers OnNavSelectionChanged)
         RootNavView.SelectedItem = RootNavView.MenuItems[0];
-        ContentFrame.Navigate(typeof(HomePage));
 
         // Initialize MainViewModel data loading
         _ = _mainViewModel.InitializeAsync();

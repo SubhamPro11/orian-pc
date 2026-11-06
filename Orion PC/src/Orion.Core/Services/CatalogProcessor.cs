@@ -9,6 +9,8 @@ public interface ICatalogProcessor
 {
     AppItem? SanitizeApp(JsonElement raw);
     AppItem ProcessItem(AppItem app, IReadOnlyDictionary<string, IReadOnlyList<ReleaseInfo>> mirror);
+    AppItem ApplyReleases(AppItem app, IReadOnlyList<ReleaseInfo> releases);
+    IReadOnlyList<ReleaseInfo> ParseReleasesJson(string releasesJson);
     IReadOnlyList<AppItem> ProcessCatalog(JsonElement rawApps, IReadOnlyDictionary<string, IReadOnlyList<ReleaseInfo>> mirror);
     IReadOnlyDictionary<string, IReadOnlyList<ReleaseInfo>> DecodeMirror(Stream stream);
     IReadOnlyList<AppItem> FilterByPlatform(IEnumerable<AppItem> apps, PlatformCategory category);
@@ -22,6 +24,12 @@ public class CatalogProcessor : ICatalogProcessor
     private readonly IVersionService _versionService;
     private readonly IAssetResolver _assetResolver;
 
+    private static readonly JsonSerializerOptions SanitizeOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.Never
+    };
+
     private static readonly Regex RepoHostRegex = new(@"^https?://(www\.)?(github\.com|gitlab\.com|codeberg\.org)/", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex GhRepoRegex = new(@"github\.com/([^/\s]+/[^/\s#?]+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
@@ -29,6 +37,24 @@ public class CatalogProcessor : ICatalogProcessor
     {
         _versionService = versionService;
         _assetResolver = assetResolver;
+    }
+
+    public static string NormalizeRepoSlug(string? repo)
+    {
+        if (string.IsNullOrWhiteSpace(repo)) return string.Empty;
+        var trimmed = repo.Trim().TrimEnd('/');
+        if (trimmed.EndsWith(".git", StringComparison.OrdinalIgnoreCase))
+        {
+            trimmed = trimmed[..^4];
+        }
+
+        var match = Regex.Match(trimmed, @"(?:https?://)?(?:www\.)?(?:github\.com|gitlab\.com|codeberg\.org)/([^/\s]+/[^/\s#?]+)", RegexOptions.IgnoreCase);
+        if (match.Success)
+        {
+            return match.Groups[1].Value.Trim().ToLowerInvariant();
+        }
+
+        return trimmed.TrimStart('/').ToLowerInvariant();
     }
 
     public static string SanitizeUrl(string? u)
@@ -51,13 +77,7 @@ public class CatalogProcessor : ICatalogProcessor
 
         try
         {
-            var options = new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true,
-                DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.Never
-            };
-
-            var app = JsonSerializer.Deserialize<AppItem>(raw.GetRawText(), options);
+            var app = JsonSerializer.Deserialize<AppItem>(raw.GetRawText(), SanitizeOptions);
             if (app == null) return null;
 
             var id = string.IsNullOrEmpty(app.Id)
@@ -71,7 +91,17 @@ public class CatalogProcessor : ICatalogProcessor
             }
 
             var tags = (app.Tags ?? Array.Empty<string>()).Where(t => !string.IsNullOrWhiteSpace(t)).ToList();
-            var plat = PlatformConstants.NormalizePlatform(app.Platform, tags);
+
+            // Preserve multi-platform values (e.g. "Android, Linux, MacOS, Windows"), normalize single platforms
+            string plat;
+            if (!string.IsNullOrWhiteSpace(app.Platform) && app.Platform.Contains(','))
+            {
+                plat = app.Platform.Trim();
+            }
+            else
+            {
+                plat = PlatformConstants.NormalizePlatform(app.Platform, tags);
+            }
 
             var icon = SanitizeUrl(app.Icon);
             if (icon == "#") icon = "";
@@ -82,6 +112,10 @@ public class CatalogProcessor : ICatalogProcessor
                 .Where(s => s != "#")
                 .ToList();
 
+            var ghRepo = !string.IsNullOrWhiteSpace(app.GithubRepo) ? NormalizeRepoSlug(app.GithubRepo) : null;
+            var glRepo = !string.IsNullOrWhiteSpace(app.GitlabRepo) ? NormalizeRepoSlug(app.GitlabRepo) : null;
+            var cbRepo = !string.IsNullOrWhiteSpace(app.CodebergRepo) ? NormalizeRepoSlug(app.CodebergRepo) : null;
+
             return app with
             {
                 Id = id,
@@ -89,6 +123,9 @@ public class CatalogProcessor : ICatalogProcessor
                 Platform = plat,
                 Tags = tags,
                 Icon = icon,
+                GithubRepo = ghRepo ?? app.GithubRepo,
+                GitlabRepo = glRepo ?? app.GitlabRepo,
+                CodebergRepo = cbRepo ?? app.CodebergRepo,
                 Version = string.IsNullOrEmpty(app.Version) ? "Latest" : app.Version,
                 LatestVersion = string.IsNullOrEmpty(app.LatestVersion) ? "Latest" : app.LatestVersion,
                 DownloadUrl = dlUrl,
@@ -136,6 +173,40 @@ public class CatalogProcessor : ICatalogProcessor
         else if (!string.IsNullOrEmpty(app.GitlabRepo) && mirror.TryGetValue(app.GitlabRepo.ToLowerInvariant(), out var r4)) releases = r4;
         else if (!string.IsNullOrEmpty(app.CodebergRepo) && mirror.TryGetValue(app.CodebergRepo.ToLowerInvariant(), out var r5)) releases = r5;
 
+        if (releases == null || releases.Count == 0) return app;
+        return ApplyReleases(app, releases);
+    }
+
+    public IReadOnlyList<ReleaseInfo> ParseReleasesJson(string releasesJson)
+    {
+        if (string.IsNullOrWhiteSpace(releasesJson)) return Array.Empty<ReleaseInfo>();
+        try
+        {
+            using var doc = JsonDocument.Parse(releasesJson);
+            var list = new List<ReleaseInfo>();
+            if (doc.RootElement.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var el in doc.RootElement.EnumerateArray())
+                {
+                    var r = ParseRelease(el);
+                    if (r != null) list.Add(r);
+                }
+            }
+            else if (doc.RootElement.ValueKind == JsonValueKind.Object)
+            {
+                var r = ParseRelease(doc.RootElement);
+                if (r != null) list.Add(r);
+            }
+            return list;
+        }
+        catch
+        {
+            return Array.Empty<ReleaseInfo>();
+        }
+    }
+
+    public AppItem ApplyReleases(AppItem app, IReadOnlyList<ReleaseInfo> releases)
+    {
         if (releases == null || releases.Count == 0) return app;
 
         var kw = string.IsNullOrWhiteSpace(app.ReleaseKeyword) ? null : app.ReleaseKeyword.Trim().ToLowerInvariant();
@@ -227,10 +298,24 @@ public class CatalogProcessor : ICatalogProcessor
         var result = new List<AppItem>();
         foreach (var element in rawApps.EnumerateArray())
         {
-            var sanitized = SanitizeApp(element);
-            if (sanitized != null)
+            try
             {
-                result.Add(ProcessItem(sanitized, mirror));
+                var sanitized = SanitizeApp(element);
+                if (sanitized != null)
+                {
+                    try
+                    {
+                        result.Add(ProcessItem(sanitized, mirror));
+                    }
+                    catch
+                    {
+                        result.Add(sanitized);
+                    }
+                }
+            }
+            catch
+            {
+                // Ignore individual corrupt entry
             }
         }
         return result;

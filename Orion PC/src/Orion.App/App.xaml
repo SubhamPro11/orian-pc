@@ -12,6 +12,12 @@
 
             <converters:StringVisibilityConverter x:Key="StringVisibilityConverter" />
             <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+
+            <!-- SubtleButtonStyle fallback for WinUI 3 controls -->
+            <Style x:Key="SubtleButtonStyle" TargetType="Button" BasedOn="{StaticResource DefaultButtonStyle}">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+            </Style>
         </ResourceDictionary>
     </Application.Resources>
 </Application>

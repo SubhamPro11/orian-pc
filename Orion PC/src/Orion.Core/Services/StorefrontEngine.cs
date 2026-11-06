@@ -107,10 +107,28 @@ public class StorefrontEngine : IStorefrontEngine
         IReadOnlyList<ModuleConfig>? modules = null,
         int? seed = null)
     {
-        var targetPlatform = PlatformConstants.NormalizePlatform(platform);
-        var apps = allApps
-            .Where(a => PlatformConstants.NormalizePlatform(a.Platform, a.TagsList) == targetPlatform)
-            .ToList();
+        List<AppItem> apps;
+        if (string.Equals(platform, "All", StringComparison.OrdinalIgnoreCase))
+        {
+            apps = allApps.ToList();
+        }
+        else if (Enum.TryParse<PlatformCategory>(platform, true, out var cat))
+        {
+            apps = allApps.Where(a => PlatformConstants.MatchesCategory(a.Platform, a.TagsList, cat)).ToList();
+        }
+        else
+        {
+            var targetPlatform = PlatformConstants.NormalizePlatform(platform);
+            var category = targetPlatform switch
+            {
+                PlatformConstants.PC => PlatformCategory.Windows,
+                PlatformConstants.TV => PlatformCategory.Android,
+                PlatformConstants.Linux => PlatformCategory.Linux,
+                PlatformConstants.MacOS => PlatformCategory.MacOS,
+                _ => PlatformCategory.Android
+            };
+            apps = allApps.Where(a => PlatformConstants.MatchesCategory(a.Platform, a.TagsList, category)).ToList();
+        }
 
         if (apps.Count == 0) return Array.Empty<StoreCollection>();
 

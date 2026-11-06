@@ -35,6 +35,5 @@ public sealed partial class DownloadsPage : Page
     protected override void OnNavigatedFrom(NavigationEventArgs e)
     {
         base.OnNavigatedFrom(e);
-        ViewModel.Dispose();
     }
 }

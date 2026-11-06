@@ -8,9 +8,11 @@ public interface ICatalogDataService
 {
     Task<IReadOnlyList<AppItem>> LoadAppsAsync(bool forceRefresh = false, CancellationToken cancellationToken = default);
     Task<StoreConfig?> LoadConfigAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<ReleaseInfo>> FetchGitHubReleasesAsync(string ownerRepo, CancellationToken cancellationToken = default);
     StoreConfig? CurrentConfig { get; }
     IReadOnlyList<AppItem> AllApps { get; }
     IReadOnlyList<AppItem> FilterAppsByPlatform(PlatformCategory category);
+    event Action? CatalogUpdated;
 }
 
 public class CatalogDataService : ICatalogDataService
@@ -27,6 +29,11 @@ public class CatalogDataService : ICatalogDataService
     private readonly string _trimmedMirrorCachePath;
     private List<AppItem> _allApps = new();
     private StoreConfig? _currentConfig;
+
+    private Task<IReadOnlyList<AppItem>>? _activeLoadTask;
+    private readonly object _loadLock = new();
+
+    public event Action? CatalogUpdated;
 
     public StoreConfig? CurrentConfig => _currentConfig;
     public IReadOnlyList<AppItem> AllApps => _allApps;
@@ -52,7 +59,7 @@ public class CatalogDataService : ICatalogDataService
             try
             {
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                cts.CancelAfter(TimeSpan.FromSeconds(5));
+                cts.CancelAfter(TimeSpan.FromSeconds(3));
 
                 var json = await _httpClient.GetStringAsync(url, cts.Token).ConfigureAwait(false);
                 _currentConfig = JsonSerializer.Deserialize<StoreConfig>(json, JsonOptions);
@@ -67,95 +74,161 @@ public class CatalogDataService : ICatalogDataService
         return null;
     }
 
-    public async Task<IReadOnlyList<AppItem>> LoadAppsAsync(bool forceRefresh = false, CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<AppItem>> LoadAppsAsync(bool forceRefresh = false, CancellationToken cancellationToken = default)
     {
-        if (_allApps.Count > 0 && !forceRefresh)
+        lock (_loadLock)
         {
-            return _allApps;
+            if (!forceRefresh && _allApps.Count > 0)
+            {
+                return Task.FromResult<IReadOnlyList<AppItem>>(_allApps);
+            }
+
+            if (_activeLoadTask != null && !_activeLoadTask.IsCompleted)
+            {
+                return _activeLoadTask;
+            }
+
+            _activeLoadTask = Task.Run(() => ExecuteLoadAppsAsync(forceRefresh, cancellationToken), cancellationToken);
+            return _activeLoadTask;
+        }
+    }
+
+    private async Task<IReadOnlyList<AppItem>> ExecuteLoadAppsAsync(bool forceRefresh, CancellationToken cancellationToken)
+    {
+        // 1. Stale-While-Revalidate: If we have no apps yet, immediately load from local disk cache or bundled fallback
+        if (_allApps.Count == 0)
+        {
+            var loadedLocal = await LoadLocalOrCachedCatalogAsync(cancellationToken).ConfigureAwait(false);
+            if (loadedLocal)
+            {
+                CatalogUpdated?.Invoke();
+            }
         }
 
-        return await Task.Run(async () =>
+        // 2. Fetch fresh catalog from remote network in background
+        try
         {
             var config = await LoadConfigAsync(cancellationToken).ConfigureAwait(false);
             var appsUrl = config != null && !string.IsNullOrEmpty(config.AppsJsonUrl)
                 ? config.AppsJsonUrl
                 : Defaults.AppsUrls[0];
 
-            // 1. Try remote fetch
-            try
+            using var appsCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            appsCts.CancelAfter(TimeSpan.FromSeconds(8));
+
+            var appsJson = await _httpClient.GetStringAsync(appsUrl, appsCts.Token).ConfigureAwait(false);
+            if (appsJson.Length > MaxCatalogSizeBytes)
             {
-                using var appsCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                appsCts.CancelAfter(TimeSpan.FromSeconds(10));
-
-                var appsJson = await _httpClient.GetStringAsync(appsUrl, appsCts.Token).ConfigureAwait(false);
-                if (appsJson.Length > MaxCatalogSizeBytes)
-                {
-                    throw new InvalidOperationException($"Remote catalog exceeds maximum allowed size ({appsJson.Length} bytes).");
-                }
-                using var doc = JsonDocument.Parse(appsJson, DocOptions);
-
-                // Fetch or load mirror
-                var mirror = await LoadOrFetchMirrorAsync(config?.MirrorJsonUrl ?? Defaults.MirrorJson, cancellationToken).ConfigureAwait(false);
-
-                var processed = _catalogProcessor.ProcessCatalog(doc.RootElement, mirror);
-                if (processed.Count > 0)
-                {
-                    _allApps = processed.ToList();
-                    try
-                    {
-                        await WriteCacheWithIntegrityAsync(_catalogCachePath, JsonSerializer.Serialize(_allApps, JsonOptions), cancellationToken).ConfigureAwait(false);
-                    }
-                    catch { /* non-critical */ }
-
-                    return (IReadOnlyList<AppItem>)_allApps;
-                }
+                throw new InvalidOperationException($"Remote catalog exceeds maximum allowed size ({appsJson.Length} bytes).");
             }
-            catch (Exception ex)
+            using var doc = JsonDocument.Parse(appsJson, DocOptions);
+
+            // Fetch or load mirror
+            var mirror = await LoadOrFetchMirrorAsync(config?.MirrorJsonUrl ?? Defaults.MirrorJson, cancellationToken).ConfigureAwait(false);
+
+            var processed = _catalogProcessor.ProcessCatalog(doc.RootElement, mirror);
+            if (processed.Count > 0)
             {
-                _logger.LogWarning($"Remote catalog fetch failed: {ex.Message}. Falling back to disk cache.");
-            }
+                _allApps = processed.ToList();
+                _logger.LogInfo($"Remote catalog loaded successfully ({_allApps.Count} apps).");
+                try
+                {
+                    await WriteCacheWithIntegrityAsync(_catalogCachePath, JsonSerializer.Serialize(_allApps, JsonOptions), cancellationToken).ConfigureAwait(false);
+                }
+                catch { /* non-critical */ }
 
-            // 2. Try disk cache with cryptographic integrity verification
+                CatalogUpdated?.Invoke();
+                return _allApps;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning($"Remote catalog fetch failed: {ex.Message}. Keeping local/cached data ({_allApps.Count} apps).");
+        }
+
+        // If remote fetch failed and we still have 0 apps, do a fallback load
+        if (_allApps.Count == 0)
+        {
+            await LoadLocalOrCachedCatalogAsync(cancellationToken).ConfigureAwait(false);
+            CatalogUpdated?.Invoke();
+        }
+
+        return _allApps;
+    }
+
+    private async Task<bool> LoadLocalOrCachedCatalogAsync(CancellationToken cancellationToken)
+    {
+        // A. Try disk cache
+        try
+        {
             var cachedJson = await ReadCacheWithIntegrityAsync(_catalogCachePath, cancellationToken).ConfigureAwait(false);
             if (!string.IsNullOrEmpty(cachedJson))
             {
-                try
+                var cached = JsonSerializer.Deserialize<List<AppItem>>(cachedJson, JsonOptions);
+                if (cached != null && cached.Count > 0)
                 {
-                    var cached = JsonSerializer.Deserialize<List<AppItem>>(cachedJson, JsonOptions);
-                    if (cached != null && cached.Count > 0)
-                    {
-                        _allApps = cached;
-                        _logger.LogInfo($"Loaded {_allApps.Count} apps from disk cache.");
-                        return _allApps;
-                    }
+                    _allApps = cached;
+                    _logger.LogInfo($"Loaded {_allApps.Count} apps from disk cache.");
+                    return true;
                 }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning($"Failed to deserialize disk cache: {ex.Message}");
-                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning($"Failed to deserialize disk cache: {ex.Message}");
+        }
+
+        // B. Fall back to embedded local_apps.json
+        try
+        {
+            var localPath = Path.Combine(AppContext.BaseDirectory, "Assets", "local_apps.json");
+            if (File.Exists(localPath))
+            {
+                var localJson = await File.ReadAllTextAsync(localPath, cancellationToken).ConfigureAwait(false);
+                using var doc = JsonDocument.Parse(localJson, DocOptions);
+                var emptyMirror = new Dictionary<string, IReadOnlyList<ReleaseInfo>>();
+                _allApps = _catalogProcessor.ProcessCatalog(doc.RootElement, emptyMirror).ToList();
+                _logger.LogInfo($"Loaded {_allApps.Count} fallback apps from local_apps.json.");
+                return _allApps.Count > 0;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("Failed to load local_apps.json fallback", ex);
+        }
+
+        return false;
+    }
+
+    public async Task<IReadOnlyList<ReleaseInfo>> FetchGitHubReleasesAsync(string ownerRepo, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(ownerRepo)) return Array.Empty<ReleaseInfo>();
+        var slug = CatalogProcessor.NormalizeRepoSlug(ownerRepo);
+        if (string.IsNullOrWhiteSpace(slug) || !slug.Contains('/')) return Array.Empty<ReleaseInfo>();
+
+        var url = $"https://api.github.com/repos/{slug}/releases?per_page=5";
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get, url);
+            req.Headers.UserAgent.ParseAdd("OrionStorePC/1.0");
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(TimeSpan.FromSeconds(8));
+
+            using var resp = await _httpClient.SendAsync(req, cts.Token).ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode)
+            {
+                _logger.LogWarning($"GitHub Releases API returned status {resp.StatusCode} for {slug}");
+                return Array.Empty<ReleaseInfo>();
             }
 
-            // 3. Fall back to embedded local_apps.json
-            try
-            {
-                var localPath = Path.Combine(AppContext.BaseDirectory, "Assets", "local_apps.json");
-                if (File.Exists(localPath))
-                {
-                    var localJson = await File.ReadAllTextAsync(localPath, cancellationToken).ConfigureAwait(false);
-                    using var doc = JsonDocument.Parse(localJson, DocOptions);
-                    var emptyMirror = new Dictionary<string, IReadOnlyList<ReleaseInfo>>();
-                    _allApps = _catalogProcessor.ProcessCatalog(doc.RootElement, emptyMirror).ToList();
-                    _logger.LogInfo($"Loaded {_allApps.Count} fallback apps from local_apps.json.");
-                    return _allApps;
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError("Failed to load local_apps.json fallback", ex);
-            }
-
-            return _allApps;
-        }, cancellationToken).ConfigureAwait(false);
+            var json = await resp.Content.ReadAsStringAsync(cts.Token).ConfigureAwait(false);
+            return _catalogProcessor.ParseReleasesJson(json);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning($"Failed to fetch GitHub releases for {slug}: {ex.Message}");
+            return Array.Empty<ReleaseInfo>();
+        }
     }
 
     private async Task<IReadOnlyDictionary<string, IReadOnlyList<ReleaseInfo>>> LoadOrFetchMirrorAsync(string mirrorUrl, CancellationToken cancellationToken)
@@ -186,7 +259,7 @@ public class CatalogDataService : ICatalogDataService
         try
         {
             using var mirrorCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            mirrorCts.CancelAfter(TimeSpan.FromSeconds(12)); // bounded timeout for mirror
+            mirrorCts.CancelAfter(TimeSpan.FromSeconds(8)); // bounded timeout for mirror
 
             using var mirrorStream = await _httpClient.GetStreamAsync(mirrorUrl, mirrorCts.Token).ConfigureAwait(false);
             var decoded = _catalogProcessor.DecodeMirror(mirrorStream);

@@ -18,7 +18,7 @@
                     <FontIcon Glyph="&#xE72B;" />
                 </Button>
                 <Border Width="72" Height="72" CornerRadius="12" Background="{ThemeResource LayerFillColorDefaultBrush}">
-                    <Image Source="{x:Bind ViewModel.App.Icon, Mode=OneWay}" Stretch="UniformToFill" />
+                    <Image Source="{x:Bind ViewModel.App.SafeIcon, Mode=OneWay}" Stretch="UniformToFill" />
                 </Border>
                 <StackPanel VerticalAlignment="Center" Spacing="4">
                     <TextBlock Text="{x:Bind ViewModel.App.Name, Mode=OneWay}" Style="{ThemeResource TitleTextBlockStyle}" FontSize="24" FontWeight="Bold" />

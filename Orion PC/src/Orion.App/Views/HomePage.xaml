@@ -28,8 +28,14 @@
                 </Grid>
             </Border>
 
+            <!-- Loading State -->
+            <StackPanel Spacing="12" Margin="0,32,0,0" HorizontalAlignment="Center" Visibility="{x:Bind ViewModel.IsLoading, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                <ProgressRing IsActive="{x:Bind ViewModel.IsLoading, Mode=OneWay}" Width="48" Height="48" HorizontalAlignment="Center" />
+                <TextBlock Text="Loading applications..." Style="{ThemeResource BodyTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" HorizontalAlignment="Center" />
+            </StackPanel>
+
             <!-- Offline / Empty State -->
-            <Border Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="12" Padding="24" Visibility="{x:Bind ViewModel.Collections.Count, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}, ConverterParameter=Inverse}">
+            <Border Background="{ThemeResource LayerFillColorDefaultBrush}" CornerRadius="12" Padding="24" Visibility="{x:Bind ViewModel.IsEmpty, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
                 <StackPanel HorizontalAlignment="Center" Spacing="8">
                     <FontIcon Glyph="&#xEB55;" FontSize="32" Foreground="{ThemeResource SystemAccentColor}" HorizontalAlignment="Center" />
                     <TextBlock Text="No Catalog Data Available" Style="{ThemeResource SubtitleTextBlockStyle}" HorizontalAlignment="Center" />
@@ -52,7 +58,7 @@
                                         <Border Width="260" Height="90" CornerRadius="8" Padding="12" Margin="0,0,12,12" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1">
                                             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
                                                 <Border Width="48" Height="48" CornerRadius="8" Background="{ThemeResource LayerFillColorDefaultBrush}">
-                                                    <Image Source="{x:Bind Icon}" Stretch="UniformToFill" />
+                                                    <Image Source="{x:Bind SafeIcon}" Stretch="UniformToFill" />
                                                 </Border>
                                                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
                                                     <TextBlock Text="{x:Bind Name}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" MaxLines="1" />

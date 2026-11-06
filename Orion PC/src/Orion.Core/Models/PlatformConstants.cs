@@ -84,22 +84,36 @@ public static class PlatformConstants
 
     /// <summary>
     /// Matches an app's platform and tags to the selected device filter category.
+    /// Preserves multi-platform support (e.g. "Android, Linux, MacOS, Windows").
     /// </summary>
-    public static bool MatchesCategory(string platform, IReadOnlyList<string>? tags, PlatformCategory category)
+    public static bool MatchesCategory(string? platform, IReadOnlyList<string>? tags, PlatformCategory category)
     {
         if (category == PlatformCategory.All)
         {
             return true;
         }
 
-        var normalized = NormalizePlatform(platform, tags);
+        var p = (platform ?? string.Empty).ToLowerInvariant();
+        var t = tags ?? Array.Empty<string>();
 
         return category switch
         {
-            PlatformCategory.Windows => normalized == PC,
-            PlatformCategory.Android => normalized == Android || normalized == TV,
-            PlatformCategory.Linux => normalized == Linux || (tags != null && tags.Any(t => LinuxTags.Contains(t))),
-            PlatformCategory.MacOS => normalized == MacOS || (tags != null && tags.Any(t => MacTags.Contains(t))),
+            PlatformCategory.Windows =>
+                p.Contains("windows") || p.Contains("pc") || p.Contains("desktop") || p.Contains("win32") ||
+                t.Any(tag => WindowsTags.Contains(tag)),
+
+            PlatformCategory.Android =>
+                (p.Contains("android") || p.Contains("tv") || p.Contains("apk") ||
+                 t.Any(tag => AndroidTags.Contains(tag)) ||
+                 (!p.Contains("windows") && !p.Contains("pc") && !p.Contains("linux") && !p.Contains("macos") && !p.Contains("mac")))
+                && !(t.Any(tag => WindowsTags.Contains(tag)) && !t.Any(tag => AndroidTags.Contains(tag)) && !p.Contains(",")),
+
+            PlatformCategory.Linux =>
+                p.Contains("linux") || t.Any(tag => LinuxTags.Contains(tag)),
+
+            PlatformCategory.MacOS =>
+                p.Contains("macos") || p.Contains("mac") || p.Contains("darwin") || t.Any(tag => MacTags.Contains(tag)),
+
             _ => true
         };
     }

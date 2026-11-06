@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.UI.Dispatching;
 using Orion.App.Services;
 using Orion.Core.Models;
 using Orion.Core.Services;
@@ -12,6 +13,7 @@ public partial class HomeViewModel : ObservableObject, IDisposable
     private readonly ICatalogDataService _catalogService;
     private readonly IStorefrontEngine _storefrontEngine;
     private readonly MainViewModel _mainViewModel;
+    private readonly DispatcherQueue? _dispatcherQueue;
 
     [ObservableProperty]
     private ObservableCollection<StoreCollection> _collections = new();
@@ -20,18 +22,23 @@ public partial class HomeViewModel : ObservableObject, IDisposable
     private ObservableCollection<AppItem> _heroApps = new();
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsEmpty))]
     private bool _isLoading = true;
 
     [ObservableProperty]
     private string _currentPlatformName = "Windows";
+
+    public bool IsEmpty => !IsLoading && Collections.Count == 0;
 
     public HomeViewModel(ICatalogDataService catalogService, IStorefrontEngine storefrontEngine, MainViewModel mainViewModel)
     {
         _catalogService = catalogService;
         _storefrontEngine = storefrontEngine;
         _mainViewModel = mainViewModel;
+        _dispatcherQueue = DispatcherQueue.GetForCurrentThread();
 
         _mainViewModel.DeviceCategoryChanged += OnDeviceCategoryChanged;
+        _catalogService.CatalogUpdated += OnCatalogUpdated;
     }
 
     private void OnDeviceCategoryChanged(PlatformCategory category)
@@ -47,9 +54,21 @@ public partial class HomeViewModel : ObservableObject, IDisposable
         _ = RefreshCollectionsAsync();
     }
 
+    private void OnCatalogUpdated()
+    {
+        if (_dispatcherQueue != null && !_dispatcherQueue.HasThreadAccess)
+        {
+            _dispatcherQueue.TryEnqueue(() => _ = RefreshCollectionsAsync());
+        }
+        else
+        {
+            _ = RefreshCollectionsAsync();
+        }
+    }
+
     public async Task InitializeAsync()
     {
-        IsLoading = true;
+        IsLoading = Collections.Count == 0;
         try
         {
             await _catalogService.LoadAppsAsync();
@@ -58,6 +77,7 @@ public partial class HomeViewModel : ObservableObject, IDisposable
         finally
         {
             IsLoading = false;
+            OnPropertyChanged(nameof(IsEmpty));
         }
     }
 
@@ -90,6 +110,7 @@ public partial class HomeViewModel : ObservableObject, IDisposable
             foreach (var a in hero.AppsList) HeroApps.Add(a);
         }
 
+        OnPropertyChanged(nameof(IsEmpty));
         return Task.CompletedTask;
     }
 
@@ -102,7 +123,7 @@ public partial class HomeViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
         _mainViewModel.DeviceCategoryChanged -= OnDeviceCategoryChanged;
+        _catalogService.CatalogUpdated -= OnCatalogUpdated;
         GC.SuppressFinalize(this);
     }
 }
-
