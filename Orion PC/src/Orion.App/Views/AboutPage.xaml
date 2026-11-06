@@ -10,9 +10,14 @@
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24">
         <StackPanel Spacing="24" MaxWidth="700" HorizontalAlignment="Left">
-            <StackPanel Spacing="4">
-                <TextBlock Text="About Orion Store for PC" Style="{ThemeResource TitleTextBlockStyle}" />
-                <TextBlock Text="{x:Bind ViewModel.Version}" Style="{ThemeResource SubtitleTextBlockStyle}" Foreground="{ThemeResource SystemAccentColor}" />
+            <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                <Border Width="56" Height="56" CornerRadius="12" Background="{ThemeResource LayerFillColorDefaultBrush}">
+                    <Image Source="ms-appx:///Assets/Square150x150Logo.scale-200.png" Stretch="UniformToFill" />
+                </Border>
+                <StackPanel Spacing="4" VerticalAlignment="Center">
+                    <TextBlock Text="About Orion Store for PC" Style="{ThemeResource TitleTextBlockStyle}" />
+                    <TextBlock Text="{x:Bind ViewModel.Version}" Style="{ThemeResource SubtitleTextBlockStyle}" Foreground="{ThemeResource SystemAccentColor}" />
+                </StackPanel>
             </StackPanel>
 
             <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}" BorderThickness="1" CornerRadius="8" Padding="16">
